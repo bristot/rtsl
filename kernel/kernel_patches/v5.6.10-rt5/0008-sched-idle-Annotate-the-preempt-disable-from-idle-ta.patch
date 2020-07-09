@@ -1,0 +1,41 @@
+From 5f01dcb5e4635a13894368258567849f601a2520 Mon Sep 17 00:00:00 2001
+Message-Id: <5f01dcb5e4635a13894368258567849f601a2520.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Wed, 22 Apr 2020 11:26:02 +0200
+Subject: [PATCH 08/16] sched/idle: Annotate the preempt disable from idle
+ tasks
+
+Idle runs with preempt disabled. It actually does not disable
+preemption: the preemption is not enabled in the return from scheduler,
+and so it is not disabled before calling back the scheduler.
+
+Annotate the call and the return of the scheduler by switching the
+reason why the preemption was disabled.
+
+No functional changes, and the code is only added if preemption tracer
+is enabled.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/sched/idle.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
+index b743bf38f08f..ba9300d1b8f8 100644
+--- a/kernel/sched/idle.c
++++ b/kernel/sched/idle.c
+@@ -290,7 +290,9 @@ static void do_idle(void)
+ 	smp_mb__after_atomic();
+ 
+ 	sched_ttwu_pending();
++	trace_preempt_switch_to_sched(CALLER_ADDR0, get_lock_parent_ip());
+ 	schedule_idle();
++	trace_preempt_switch_not_sched(CALLER_ADDR0, get_lock_parent_ip());
+ 
+ 	if (unlikely(klp_patch_pending(current)))
+ 		klp_update_patch_state(current);
+-- 
+2.26.2
+

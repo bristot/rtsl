@@ -1,0 +1,50 @@
+From 5ce0900b43309b4b78ddb140235e67e85218553a Mon Sep 17 00:00:00 2001
+Message-Id: <5ce0900b43309b4b78ddb140235e67e85218553a.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 12 May 2020 13:41:28 +0200
+Subject: [PATCH 14/16] x86_64/preemptirq: Add TRACE_IRQS_OFF_ENTRY helper
+
+Add TRACE_IRQS_OFF_ENTRY helper to notify that IRQs were disabled
+by the hardware before starting handing the interrupt.
+
+TRACE_IRQS_OFF_ENTRY points to trace_hardirqs_off_caller_irq_entry().
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ arch/x86/entry/thunk_64.S       | 1 +
+ arch/x86/include/asm/irqflags.h | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/arch/x86/entry/thunk_64.S b/arch/x86/entry/thunk_64.S
+index c5c3b6e86e62..4437e5760273 100644
+--- a/arch/x86/entry/thunk_64.S
++++ b/arch/x86/entry/thunk_64.S
+@@ -40,6 +40,7 @@ SYM_FUNC_END(\name)
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ 	THUNK trace_hardirqs_on_thunk,trace_hardirqs_on_caller,1
+ 	THUNK trace_hardirqs_off_thunk,trace_hardirqs_off_caller,1
++	THUNK trace_hardirqs_off_irq_entry_thunk,trace_hardirqs_off_caller_irq_entry,1
+ #endif
+ 
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+diff --git a/arch/x86/include/asm/irqflags.h b/arch/x86/include/asm/irqflags.h
+index 8a0e56e1dcc9..d1359f3e553a 100644
+--- a/arch/x86/include/asm/irqflags.h
++++ b/arch/x86/include/asm/irqflags.h
+@@ -176,9 +176,11 @@ static inline int arch_irqs_disabled(void)
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ #  define TRACE_IRQS_ON		call trace_hardirqs_on_thunk;
+ #  define TRACE_IRQS_OFF	call trace_hardirqs_off_thunk;
++#  define TRACE_IRQS_OFF_ENTRY	call trace_hardirqs_off_irq_entry_thunk;
+ #else
+ #  define TRACE_IRQS_ON
+ #  define TRACE_IRQS_OFF
++#  define TRACE_IRQS_OFF_ENTRY
+ #endif
+ #ifdef CONFIG_DEBUG_LOCK_ALLOC
+ #  ifdef CONFIG_X86_64
+-- 
+2.26.2
+

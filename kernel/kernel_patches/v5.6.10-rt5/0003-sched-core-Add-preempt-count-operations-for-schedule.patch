@@ -1,0 +1,136 @@
+From 80a51098f8d7149f474a671c75812452a8e30b0b Mon Sep 17 00:00:00 2001
+Message-Id: <80a51098f8d7149f474a671c75812452a8e30b0b.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 21 Apr 2020 21:44:04 +0200
+Subject: [PATCH 03/16] sched/core: Add preempt count operations for scheduler
+
+Adds preempt_count_inc_sched()/preempt_count_dec_sched() and the
+respective preempt_count_add_sched()/preempt_count_sub_sched() helpers.
+
+Also, use the new methods for the preempt_[disable|enable]_sched().
+
+No functional changes.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ include/linux/preempt.h | 19 +++++++++++++++++--
+ kernel/sched/core.c     | 24 ++++++++++++++++++++++--
+ 2 files changed, 39 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/preempt.h b/include/linux/preempt.h
+index 5c083c096d70..e0d21a199faf 100644
+--- a/include/linux/preempt.h
++++ b/include/linux/preempt.h
+@@ -163,11 +163,15 @@
+ #if defined(CONFIG_DEBUG_PREEMPT) || defined(CONFIG_TRACE_PREEMPT_TOGGLE)
+ extern void preempt_count_add(int val);
+ extern void preempt_count_sub(int val);
++extern void preempt_count_add_sched(int val);
++extern void preempt_count_sub_sched(int val);
+ #define preempt_count_dec_and_test() \
+ 	({ preempt_count_sub(1); should_resched(0); })
+ #else
+ #define preempt_count_add(val)	__preempt_count_add(val)
+ #define preempt_count_sub(val)	__preempt_count_sub(val)
++#define preempt_count_add_sched(val)	__preempt_count_add(val)
++#define preempt_count_sub_sched(val)	__preempt_count_sub(val)
+ #define preempt_count_dec_and_test() __preempt_count_dec_and_test()
+ #endif
+ 
+@@ -177,6 +181,9 @@ extern void preempt_count_sub(int val);
+ #define preempt_count_inc() preempt_count_add(1)
+ #define preempt_count_dec() preempt_count_sub(1)
+ 
++#define preempt_count_inc_sched() preempt_count_add_sched(1)
++#define preempt_count_dec_sched() preempt_count_sub_sched(1)
++
+ #ifdef CONFIG_PREEMPT_LAZY
+ #define add_preempt_lazy_count(val)	do { preempt_lazy_count() += (val); } while (0)
+ #define sub_preempt_lazy_count(val)	do { preempt_lazy_count() -= (val); } while (0)
+@@ -199,7 +206,11 @@ do { \
+ 	barrier(); \
+ } while (0)
+ 
+-#define preempt_disable_sched() preempt_disable()
++#define preempt_disable_sched()	\
++do { \
++	preempt_count_inc_sched(); \
++	barrier(); \
++} while (0)
+ 
+ #define preempt_lazy_disable() \
+ do { \
+@@ -213,7 +224,11 @@ do { \
+ 	preempt_count_dec(); \
+ } while (0)
+ 
+-#define preempt_enable_sched()	sched_preempt_enable_no_resched()
++#define preempt_enable_sched() \
++do { \
++	barrier(); \
++	preempt_count_dec_sched(); \
++} while (0)
+ 
+ #ifdef CONFIG_PREEMPT_RT
+ # define preempt_enable_no_resched() sched_preempt_enable_no_resched()
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index a70f86fc6fe5..dc709aca6814 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3895,7 +3895,7 @@ static inline void preempt_latency_start(int val)
+ 	}
+ }
+ 
+-void preempt_count_add(int val)
++static inline void preempt_count_add_debug(int val, int to_sched)
+ {
+ #ifdef CONFIG_DEBUG_PREEMPT
+ 	/*
+@@ -3914,6 +3914,16 @@ void preempt_count_add(int val)
+ #endif
+ 	preempt_latency_start(val);
+ }
++
++void preempt_count_add_sched(int val)
++{
++	preempt_count_add_debug(val, 1);
++}
++
++void preempt_count_add(int val)
++{
++	preempt_count_add_debug(val, 0);
++}
+ EXPORT_SYMBOL(preempt_count_add);
+ NOKPROBE_SYMBOL(preempt_count_add);
+ 
+@@ -3927,7 +3937,7 @@ static inline void preempt_latency_stop(int val)
+ 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
+ }
+ 
+-void preempt_count_sub(int val)
++static inline void preempt_count_sub_debug(int val, int to_sched)
+ {
+ #ifdef CONFIG_DEBUG_PREEMPT
+ 	/*
+@@ -3946,6 +3956,16 @@ void preempt_count_sub(int val)
+ 	preempt_latency_stop(val);
+ 	__preempt_count_sub(val);
+ }
++
++void preempt_count_sub_sched(int val)
++{
++	return preempt_count_sub_debug(val, 1);
++}
++
++void preempt_count_sub(int val)
++{
++	return preempt_count_sub_debug(val, 0);
++}
+ EXPORT_SYMBOL(preempt_count_sub);
+ NOKPROBE_SYMBOL(preempt_count_sub);
+ 
+-- 
+2.26.2
+

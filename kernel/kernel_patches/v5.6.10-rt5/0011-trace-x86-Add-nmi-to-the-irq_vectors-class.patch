@@ -1,0 +1,95 @@
+From 9b846b52980eda363eb57c6aa2f189f8cc20fb8f Mon Sep 17 00:00:00 2001
+Message-Id: <9b846b52980eda363eb57c6aa2f189f8cc20fb8f.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: root <root@localhost.localdomain>
+Date: Mon, 16 Dec 2019 21:37:25 +0100
+Subject: [PATCH 11/16] trace,x86: Add nmi to the irq_vectors class
+
+Currently, the irq_vector class of tracepoints does not include the NMI
+entry. The NMI was in the first set of tracepoints for IRQs, but it was
+dropped off because of the logic of switching IDT when enabling trace[1].
+However, as the switching IDT logic was removed [2], it is possible to add
+the NMI tracepoints back.
+
+The tracepoints looks like:
+          <idle>-0     [000] d.Z.   179.594315: nmi_entry: vector=2
+          <idle>-0     [000] d.Z.   179.594396: nmi_exit: vector=2
+
+[1] trace,x86: irq vector tracepoint support
+    https://lwn.net/Articles/555465/
+[2] commit 4b9a8dca0e58 ("x86/idt: Remove the tracing IDT completely")
+
+Changes from V1:
+  - Fix a compilation problem when CONFIG_X86_LOCAL_APIC is not set (kbuild test)
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Clark Williams <williams@redhat.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: x86@kernel.org
+---
+ arch/x86/include/asm/trace/irq_vectors.h | 7 +++++++
+ arch/x86/kernel/nmi.c                    | 4 ++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/arch/x86/include/asm/trace/irq_vectors.h b/arch/x86/include/asm/trace/irq_vectors.h
+index 38e73d56db70..a68885e90e16 100644
+--- a/arch/x86/include/asm/trace/irq_vectors.h
++++ b/arch/x86/include/asm/trace/irq_vectors.h
+@@ -144,6 +144,11 @@ DEFINE_IRQ_VECTOR_EVENT(thermal_apic);
+  */
+ DEFINE_IRQ_VECTOR_EVENT(external_interrupt);
+ 
++/*
++ * nmi - called when entering/exiting from nmi vector handler.
++ */
++DEFINE_IRQ_VECTOR_EVENT(nmi);
++
+ TRACE_EVENT(vector_config,
+ 
+ 	TP_PROTO(unsigned int irq, unsigned int vector,
+@@ -394,6 +399,8 @@ TRACE_EVENT(vector_free_moved,
+ #else /* CONFIG_X86_LOCAL_APIC */
+ #define trace_external_interrupt_entry(vector) do {} while(0)
+ #define trace_external_interrupt_exit(vector) do {} while(0)
++#define trace_nmi_entry(vector) do {} while(0)
++#define trace_nmi_exit(vector) do {} while(0)
+ #endif /* CONFIG_X86_LOCAL_APIC */
+ 
+ #undef TRACE_INCLUDE_PATH
+diff --git a/arch/x86/kernel/nmi.c b/arch/x86/kernel/nmi.c
+index 54c21d6abd5a..f7b933a5cf60 100644
+--- a/arch/x86/kernel/nmi.c
++++ b/arch/x86/kernel/nmi.c
+@@ -40,6 +40,8 @@
+ 
+ #define CREATE_TRACE_POINTS
+ #include <trace/events/nmi.h>
++#undef CREATE_TRACE_POINTS
++#include <asm/trace/irq_vectors.h>
+ 
+ struct nmi_desc {
+ 	raw_spinlock_t lock;
+@@ -535,12 +537,14 @@ do_nmi(struct pt_regs *regs, long error_code)
+ #endif
+ 
+ 	nmi_enter();
++	trace_nmi_entry(2);
+ 
+ 	inc_irq_stat(__nmi_count);
+ 
+ 	if (!ignore_nmis)
+ 		default_do_nmi(regs);
+ 
++	trace_nmi_exit(2);
+ 	nmi_exit();
+ 
+ #ifdef CONFIG_X86_64
+-- 
+2.26.2
+

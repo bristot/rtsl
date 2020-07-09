@@ -1,0 +1,21 @@
+#!/usr/bin/bash
+
+if [ ! -f /sys/kernel/debug/rtsl/enable ]; then
+	modprobe rtsl
+	if [ $? != 0 ]; then
+		echo "failed to load the rtsl module."
+		exit
+	fi
+fi
+
+perf record -r1 -a -e rtsl:irq_execution -e rtsl:nmi_execution -e rtsl:max_poid -e rtsl:max_psd -e rtsl:max_dst -e rtsl:max_paie $@ &
+
+sleep 2
+
+# Enable and resets the latency module
+echo 1 > /sys/kernel/debug/rtsl/enable
+
+wait
+
+# Disable the latency module
+echo 0 > /sys/kernel/debug/rtsl/enable

@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+# description: sched latency analysis
+
+perf script -s "$PERF_EXEC_PATH"/scripts/python/latency_analysis.py

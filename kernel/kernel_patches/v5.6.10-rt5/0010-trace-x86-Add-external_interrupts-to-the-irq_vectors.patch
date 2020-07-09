@@ -1,0 +1,86 @@
+From 85b53a55b2646cac2b76c6f7d9c1e14d42a974c7 Mon Sep 17 00:00:00 2001
+Message-Id: <85b53a55b2646cac2b76c6f7d9c1e14d42a974c7.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: root <root@localhost.localdomain>
+Date: Mon, 16 Dec 2019 21:36:17 +0100
+Subject: [PATCH 10/16] trace,x86: Add external_interrupts to the irq_vectors
+ class
+
+Currently, the irq_vectors is showing the entry and exit events for
+the interrupts of the architecture, but not for external interrupts.
+
+Adds the tracepoints for external interrupts.
+
+Example of output:
+ <idle>-0     [000] d.h.   102.890935: external_interrupt_entry: vector=35
+ <idle>-0     [000] d.h.   102.890960: external_interrupt_exit: vector=35
+
+Changes from V1:
+  - Fix a compilation problem when CONFIG_X86_LOCAL_APIC is not set (kbuild test)
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Clark Williams <williams@redhat.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: x86@kernel.org
+---
+ arch/x86/include/asm/trace/irq_vectors.h | 10 +++++++++-
+ arch/x86/kernel/irq.c                    |  2 ++
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/include/asm/trace/irq_vectors.h b/arch/x86/include/asm/trace/irq_vectors.h
+index 33b9d0f0aafe..38e73d56db70 100644
+--- a/arch/x86/include/asm/trace/irq_vectors.h
++++ b/arch/x86/include/asm/trace/irq_vectors.h
+@@ -138,6 +138,12 @@ DEFINE_IRQ_VECTOR_EVENT(deferred_error_apic);
+ DEFINE_IRQ_VECTOR_EVENT(thermal_apic);
+ #endif
+ 
++/*
++ * external_interrupt - called when entering/exiting from regular device
++ * interrupt vector handler.
++ */
++DEFINE_IRQ_VECTOR_EVENT(external_interrupt);
++
+ TRACE_EVENT(vector_config,
+ 
+ 	TP_PROTO(unsigned int irq, unsigned int vector,
+@@ -385,7 +391,9 @@ TRACE_EVENT(vector_free_moved,
+ 		  __entry->is_managed)
+ );
+ 
+-
++#else /* CONFIG_X86_LOCAL_APIC */
++#define trace_external_interrupt_entry(vector) do {} while(0)
++#define trace_external_interrupt_exit(vector) do {} while(0)
+ #endif /* CONFIG_X86_LOCAL_APIC */
+ 
+ #undef TRACE_INCLUDE_PATH
+diff --git a/arch/x86/kernel/irq.c b/arch/x86/kernel/irq.c
+index 21efee32e2b1..e5d1bee4f8ec 100644
+--- a/arch/x86/kernel/irq.c
++++ b/arch/x86/kernel/irq.c
+@@ -238,6 +238,7 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
+ 	unsigned vector = ~regs->orig_ax;
+ 
+ 	entering_irq();
++	trace_external_interrupt_entry(vector);
+ 
+ 	/* entering_irq() tells RCU that we're not quiescent.  Check it. */
+ 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "IRQ failed to wake up RCU");
+@@ -260,6 +261,7 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
+ 		}
+ 	}
+ 
++	trace_external_interrupt_exit(vector);
+ 	exiting_irq();
+ 
+ 	set_irq_regs(old_regs);
+-- 
+2.26.2
+

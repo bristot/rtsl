@@ -1,0 +1,137 @@
+From 63e3c66089f7f080771d938f1e1c92d5fd88456f Mon Sep 17 00:00:00 2001
+Message-Id: <63e3c66089f7f080771d938f1e1c92d5fd88456f.1589812797.git.bristot@redhat.com>
+In-Reply-To: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+References: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Wed, 22 Apr 2020 10:44:21 +0200
+Subject: [PATCH 06/16] trace/preemptirq: Let the tracepoints know why
+ preemption was disabled
+
+Forward the reason why the preemption was disabled to the tracepoints.
+
+It does not print the reason, but the field is there for the functions
+that hook the tracer to interpret it.
+
+The IRQ control can also be updated, adding the information if the
+current thread masked IRQs, or if it is caused by an annotation of an
+kernel entry point, notifying that the hardware disabled the interrupts,
+e.g., at the beginning of the interrupt handlers.
+
+No functional changes.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ include/trace/events/preemptirq.h | 20 ++++++++++----------
+ kernel/trace/trace_preemptirq.c   | 12 ++++++------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/include/trace/events/preemptirq.h b/include/trace/events/preemptirq.h
+index 3f249e150c0c..77164a15831c 100644
+--- a/include/trace/events/preemptirq.h
++++ b/include/trace/events/preemptirq.h
+@@ -13,9 +13,9 @@
+ 
+ DECLARE_EVENT_CLASS(preemptirq_template,
+ 
+-	TP_PROTO(unsigned long ip, unsigned long parent_ip),
++	TP_PROTO(unsigned long ip, unsigned long parent_ip, int reason),
+ 
+-	TP_ARGS(ip, parent_ip),
++	TP_ARGS(ip, parent_ip, reason),
+ 
+ 	TP_STRUCT__entry(
+ 		__field(s32, caller_offs)
+@@ -34,12 +34,12 @@ DECLARE_EVENT_CLASS(preemptirq_template,
+ 
+ #ifdef CONFIG_TRACE_IRQFLAGS
+ DEFINE_EVENT(preemptirq_template, irq_disable,
+-	     TP_PROTO(unsigned long ip, unsigned long parent_ip),
+-	     TP_ARGS(ip, parent_ip));
++	     TP_PROTO(unsigned long ip, unsigned long parent_ip, int reason),
++	     TP_ARGS(ip, parent_ip, reason));
+ 
+ DEFINE_EVENT(preemptirq_template, irq_enable,
+-	     TP_PROTO(unsigned long ip, unsigned long parent_ip),
+-	     TP_ARGS(ip, parent_ip));
++	     TP_PROTO(unsigned long ip, unsigned long parent_ip, int reason),
++	     TP_ARGS(ip, parent_ip, reason));
+ #else
+ #define trace_irq_enable(...)
+ #define trace_irq_disable(...)
+@@ -49,12 +49,12 @@ DEFINE_EVENT(preemptirq_template, irq_enable,
+ 
+ #ifdef CONFIG_TRACE_PREEMPT_TOGGLE
+ DEFINE_EVENT(preemptirq_template, preempt_disable,
+-	     TP_PROTO(unsigned long ip, unsigned long parent_ip),
+-	     TP_ARGS(ip, parent_ip));
++	     TP_PROTO(unsigned long ip, unsigned long parent_ip, int reason),
++	     TP_ARGS(ip, parent_ip, reason));
+ 
+ DEFINE_EVENT(preemptirq_template, preempt_enable,
+-	     TP_PROTO(unsigned long ip, unsigned long parent_ip),
+-	     TP_ARGS(ip, parent_ip));
++	     TP_PROTO(unsigned long ip, unsigned long parent_ip, int reason),
++	     TP_ARGS(ip, parent_ip, reason));
+ #else
+ #define trace_preempt_enable(...)
+ #define trace_preempt_disable(...)
+diff --git a/kernel/trace/trace_preemptirq.c b/kernel/trace/trace_preemptirq.c
+index 077a348efe4e..5253f7d2d2b2 100644
+--- a/kernel/trace/trace_preemptirq.c
++++ b/kernel/trace/trace_preemptirq.c
+@@ -23,7 +23,7 @@ void trace_hardirqs_on(void)
+ {
+ 	if (this_cpu_read(tracing_irq_cpu)) {
+ 		if (!in_nmi())
+-			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
++			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1, 0);
+ 		tracer_hardirqs_on(CALLER_ADDR0, CALLER_ADDR1);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -39,7 +39,7 @@ void trace_hardirqs_off(void)
+ 		this_cpu_write(tracing_irq_cpu, 1);
+ 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
+ 		if (!in_nmi())
+-			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
++			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1, 0);
+ 	}
+ 
+ 	lockdep_hardirqs_off(CALLER_ADDR0);
+@@ -51,7 +51,7 @@ __visible void trace_hardirqs_on_caller(unsigned long caller_addr)
+ {
+ 	if (this_cpu_read(tracing_irq_cpu)) {
+ 		if (!in_nmi())
+-			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr);
++			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr, 0);
+ 		tracer_hardirqs_on(CALLER_ADDR0, caller_addr);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -67,7 +67,7 @@ __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
+ 		this_cpu_write(tracing_irq_cpu, 1);
+ 		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
+ 		if (!in_nmi())
+-			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr);
++			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr, 0);
+ 	}
+ 
+ 	lockdep_hardirqs_off(CALLER_ADDR0);
+@@ -81,14 +81,14 @@ NOKPROBE_SYMBOL(trace_hardirqs_off_caller);
+ void trace_preempt_on(unsigned long a0, unsigned long a1, int to_sched)
+ {
+ 	if (!in_nmi())
+-		trace_preempt_enable_rcuidle(a0, a1);
++		trace_preempt_enable_rcuidle(a0, a1, to_sched);
+ 	tracer_preempt_on(a0, a1);
+ }
+ 
+ void trace_preempt_off(unsigned long a0, unsigned long a1, int to_sched)
+ {
+ 	if (!in_nmi())
+-		trace_preempt_disable_rcuidle(a0, a1);
++		trace_preempt_disable_rcuidle(a0, a1, to_sched);
+ 	tracer_preempt_off(a0, a1);
+ }
+ #endif
+-- 
+2.26.2
+

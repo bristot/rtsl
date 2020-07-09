@@ -1,0 +1,639 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Copyright 2020 Red Hat, Inc.
+#
+# Author:
+#  Daniel Bristot de Oliveira <bristot@redhat.com>
+
+import shlex
+import shutil
+import subprocess
+
+class RtslModule:
+    __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
+
+    def rtsl_check_interface(self):
+        """
+        Check if the rtsl is loaded by trying to open the enable interface.
+        """
+
+        enable_path=self.__rtsl_interface_dir + "enable"
+        enable=open(enable_path, 'w')
+        enable.close()
+
+    def __rtsl_interface_enable(self, on_off):
+        """
+        Write in rts/enable file.
+        """
+        enable_path=self.__rtsl_interface_dir + "enable"
+
+        try:
+            enable=open(enable_path, 'w')
+        except Exception as e:
+            raise e
+
+        try:
+            enable.write(on_off)
+        except:
+            raise Exception("Cannot write to the RTSL interface: %s" % e.strerror)
+
+        enable.close()
+
+    def rtsl_enable(self):
+        """
+        Enable rtsl tracepoints.
+        """
+        self.__rtsl_interface_enable("1")
+
+    def rtsl_disable(self):
+        """
+        Disable rtsl tracepoints.
+        """
+        self.__rtsl_interface_enable("0")
+
+class RtslCmdOptions(RtslModule):
+    duration=0
+
+    def duration_to_seconds(self, duration):
+        "Convert a time input TIME<smhdw> to the value in seconds"
+
+        # yes, from hwlatdetect... :-)
+        if str(duration).isdigit():
+            return int(duration)
+        elif duration[-2].isalpha():
+            raise RuntimeError("illegal suffix for seconds: '%s'" % duration[-2:-1])
+        elif duration[-1:] == 's':
+            return int(duration[0:-1])
+        elif duration[-1:] == 'm':
+            return int(duration[0:-1]) * 60
+        elif duration[-1:] == 'h':
+            return int(duration[0:-1]) * 3600
+        elif duration[-1:] == 'd':
+            return int(duration[0:-1]) * 86400
+        elif duration[-1:] == 'w':
+            return int(duration[0:-1]) * 86400 * 7
+        else:
+            raise RuntimeError("invalid input for seconds: '%s'" % duration)
+
+class RtslTrace(RtslCmdOptions):
+    __modes={ "record" : 1, "report" : 2, }
+    __mode=None
+
+    __backends={ "perf" : 1, "ftrace" : 2, }
+    __backend=None
+
+    __run_cyclictest=False
+    __cyclictest_parameters="-q"
+
+    __verbose=False
+
+    __rtsl_events=[ "rtsl:max_paie",
+                    "rtsl:max_poid",
+                    "rtsl:max_dst",
+                    "rtsl:max_psd",
+                    "rtsl:irq_execution",
+                    "rtsl:nmi_execution" ]
+
+    __trace_cmd_plugins=["/usr/lib64/trace-cmd/plugins/", "~/.trace-cmd/plugins/" ]
+    __perf_plugins=["/usr/lib64/trace-cmd/plugins/", "~/.local/lib/traceevent/plugins/" ]
+
+    __db_list=[]
+
+    __working_dir="rtsl_data"
+    __trace_file=""
+
+    def __init__(self, mode, duration=60, backend="perf", cyclictest=False, cyclictest_parameters="", verbose=False, working_dir="rtsl_data"):
+
+        self.__mode=self.__modes.get(mode)
+        if self.__mode == None:
+            raise Exception("Unknown mode: %s" % mode)
+
+        if self.__backends.get(backend) == None:
+            raise Exception("Unknown backend: %s" % mode)
+
+        self.__backend = backend
+
+        if mode == "record":
+            # try to read the module
+            try:
+                self.rtsl_check_interface()
+            except Exception as e:
+                raise Exception("Cannot access RTSL interface: %s" % e.strerror)
+
+            try:
+                self.duration = self.duration_to_seconds(duration)
+            except Exception as e:
+                raise Exception("Invalid Duration: %s" % e)
+
+            if cyclictest == True:
+                self.__run_cyclictest = true
+                self.__cyclictest_parameters += cyclictest_parameters
+                self.__cyclictest_parameters += "-d%ds" % (duration)
+                print(self.__cyclictest_parameters)
+
+        if verbose:
+            self.__verbose=True
+        self.__working_dir=working_dir
+
+    def __prepare_working_dir(self):
+        if os.path.exists(self.__working_dir):
+            old_working_dir = "%s.old" % self.__working_dir
+
+            if os.path.exists(old_working_dir):
+                try:
+                    shutil.rmtree(old_working_dir)
+                except:
+                    raise Exception("Fail to remove the old working dir (%s)" % old_working_dir)
+
+            try:
+                os.rename(self.__working_dir, old_working_dir)
+            except:
+                raise Exception("Old working directory exist, but it cannot be moved.")
+
+        try:
+            os.mkdir(self.__working_dir)
+        except:
+            raise Exception("Cannot create the working dir.")
+
+    def __get_file_multipath(self, paths, file_name):
+        for path in paths:
+            file_path=os.path.expanduser(path) + "/" +  file_name
+            if os.path.exists(file_path):
+                return file_path
+
+        return None
+
+    def __run_command(self, command, silent=False):
+        """
+        Run a command, returning the process descriptor.
+        """
+        if silent:
+            output=subprocess.DEVNULL
+        else:
+            output=subprocess.PIPE
+
+        try:
+            process = subprocess.Popen(shlex.split(command), stdout=output, stderr=subprocess.PIPE)
+        except Exception as e:
+            raise e
+
+        return process
+
+    def __poll_process_output(self, process, save_output=False, silent=False):
+        """
+        Poll a process output until the process ends.
+        ^C terminates the process, ^C again kills it.
+        """
+        saved_output=[]
+        term_sent=False
+        while True:
+            try:
+                if silent:
+                    output = process.stderr.readline()
+                else:
+                    output = process.stdout.readline()
+            except KeyboardInterrupt:
+                if not term_sent:
+                    print("\nKeyboard interrupt, sending SIGTERM...")
+                    process.terminate()
+                    term_sent = True
+                else:
+                    print("\nKeyboard interrupt again, ok, got it, killing...")
+                    process.kill()
+            except Exception as e:
+                raise e
+
+            if self.__verbose:
+                print(output.decode(), end="")
+
+            if save_output:
+                saved_output.append(output.decode())
+
+            rc = process.poll()
+            if rc is not None:
+                break
+
+        return saved_output
+
+    def __record_tracer_cmd(self, tracer_cmd_line):
+        """
+        run a tracer in the record mode, enabling and disabling rtsl
+        interface accordingly.
+        """
+
+        # try to run it.
+        try:
+            trace_cmd = self.__run_command(tracer_cmd_line)
+        except Exception as e:
+            raise e
+
+        # Let the trace-cmd to start up.
+        time.sleep(2)
+
+        # if it runs, enable rtsl events. This includes hooking to
+        # the tracepoints and start the values of the thread windows.
+        try:
+            self.rtsl_enable()
+        except Exception as e:
+            trace_cmd.kill()
+            raise Exception("Error enabling RTSL: %s" % e.strerror)
+
+        # so far so good, wait for trace-cmd to return.
+        self.__poll_process_output(trace_cmd)
+
+        # and now disable the rtsl (unhook the tracepoints)
+        try:
+            self.rtsl_disable()
+        except Exception as e:
+            raise Exception("Error disabling RTSL: %s" % e.strerror)
+
+        # ta da!
+
+    def __record_ftrace(self):
+        """
+        trace-cmd record: record the rtsl events.
+        """
+
+        # Create the trace-cmd string.
+        event_cmd=""
+        for event in self.__rtsl_events:
+            event_cmd += "-e %s " % event
+
+        command="trace-cmd record -r1 -o %s %s sleep %d" % (self.__trace_file, event_cmd, self.duration)
+        self.__record_tracer_cmd(command)
+
+    def __record_perf(self):
+        """
+        perf record: record the rtsl events.
+        """
+
+        # Create the perf string.
+        event_cmd=""
+        for event in self.__rtsl_events:
+            event_cmd += "-e %s " % event
+
+        command="perf record -o %s -a %s sleep %d" % (self.__trace_file, event_cmd, self.duration)
+        self.__record_tracer_cmd(command)
+
+    def record(self):
+        """
+        record: use trace to record the variables exported by the rtsl tracer.
+        """
+
+        self.__prepare_working_dir()
+
+        try:
+            if self.__backend == "ftrace":
+                self.__trace_file="%s/%s" % (self.__working_dir, "trace.dat")
+                self.__record_ftrace()
+            elif self.__backend == "perf":
+                self.__trace_file="%s/%s" % (self.__working_dir, "perf.data")
+                self.__record_perf()
+            else:
+                print("Unknown backend...")
+                return
+        except Exception as e:
+            print(str(e))
+
+# -------------------- report --------------------
+    def __report_tracer_cmd(self, tracer_cmd_line, cpu_list, reparse=False):
+        """
+        run a report command, no rtsl control in needed.
+        """
+        process_list=[]
+        db_name_list=[]
+
+        # tell the plugin to record the database.
+        os.environ["RTSL_RECORD_DB"] = "1"
+
+        for cpu in cpu_list:
+            db_name = self.__working_dir + "/trace_" + cpu + ".rtsl"
+
+            db_name_list.append(db_name)
+
+            if reparse == False:
+                if os.path.exists(db_name):
+                    continue
+
+            os.environ["RTSL_DB_NAME"] = db_name
+
+            # try to run the conversion
+            per_cpu_cmd_line = tracer_cmd_line + " --cpu " + cpu
+            process = self.__run_command(per_cpu_cmd_line, silent=True)
+
+            process_list.append(process)
+        # wait
+        for process in process_list:
+            self.__poll_process_output(process, silent=True)
+
+        os.environ.pop("RTSL_RECORD_DB")
+
+        self.__db_list = db_name_list
+
+    def __report_ftrace_get_cpus(self):
+        command="trace-cmd report --stat -i %s" % self.__trace_file
+        process = self.__run_command(command)
+        output = self.__poll_process_output(process, save_output=True)
+
+        cpus=-1
+        cpu_list=[]
+        for i in output:
+            # trace-cmd reports:
+            # cpus=NR_CPUS
+            if i[0:5] == "cpus=":
+                cpus=i.replace("=", " ").split()[1]
+
+            # trace-cmd reports:
+            # for each CPU
+            #     CPU: CPU_ID
+            if i[0:4] == "CPU:":
+                cpu_list.append(i.split()[1])
+
+        return cpu_list
+
+    def __report_ftrace(self, params):
+        """
+        trace-cmd report: parse trace.dat converting into the sqlite database.
+        """
+
+        # Check if the trace-cmd plugin that converts the trace.dat
+        # into a database exists before start.
+        if self.__get_file_multipath(self.__trace_cmd_plugins, "plugin_rtsl.so") is None:
+            raise Exception("trace-cmd plugin is not installed, cannot proceed.")
+
+        cpu_list = self.__report_ftrace_get_cpus()
+
+        command="trace-cmd report -i %s" % self.__trace_file
+
+        self.__report_tracer_cmd(command, cpu_list, reparse=params.reparse)
+
+    def __report_perf_get_cpus(self):
+        command="perf report -i %s --header-only -I" % self.__trace_file
+        process = self.__run_command(command)
+        output = self.__poll_process_output(process, save_output=True)
+
+        cpus=-1
+        cpu_list=[]
+        for i in output:
+            # perf reports:
+            # '# nrcpus avail : 8' (yes, there is a # at the beginning)
+            if i[0:14] == "# nrcpus avail":
+                cpus=i.replace("=", " ").split()[4]
+
+            # perf reports
+            # for each CPU
+            #     '# CPU 0: Core ID 0, Die ID 0, Socket ID 0"
+            # we only acre about the CPU.
+            if i[0:6] == "# CPU ":
+                cpu=i.split()[2].replace(":","")
+                if cpu.isdigit():
+                    cpu_list.append(cpu)
+            
+        return cpu_list
+
+    def __report_perf(self, params):
+        """
+        perf report: parse perf.data converting into the sqlite database.
+        """
+
+        # Check if the perf plugin that converts the perf.data
+        # into a database exists before start.
+        if self.__get_file_multipath(self.__perf_plugins, "plugin_rtsl.so") is None:
+            raise Exception("perf plugin is not installed, cannot proceed.")
+
+        cpu_list = self.__report_perf_get_cpus()
+
+        command="perf script -i %s" % self.__trace_file
+        self.__report_tracer_cmd(command, cpu_list, reparse=param.reparse)
+
+    def report(self, params):
+        """
+        Convert a trace file (trace.dat/perf.data) into the sqlite database,
+        then run the analysis on it.
+        """
+
+        if os.path.exists(self.__working_dir + "/trace.dat"):
+            self.__trace_file="%s/%s" % (self.__working_dir, "trace.dat")
+            self.__report_ftrace(params)
+        elif os.path.exists(self.__working_dir + "/perf.data"):
+            self.__trace_file="%s/%s" % (self.__working_dir, "perf.data")
+            self.__report_perf(params)
+
+        else:
+            raise Exception("Did not find a trace file in the working dir (%s)" % self.__working_dir)
+
+        self.analysis(self.__db_list)
+
+# -------------------- Analysis --------------------
+    def analysis_thread(self, database, io_queue):
+        """
+        Analyze a database file, placing the output into a queue.
+        """
+
+        try:
+            import rt_sched_latency
+        except Exception as e:
+            raise Exception("Could not find the rt_sched_latency library")
+
+        report=rt_sched_latency.Rtsl('report', database, print_sync=False)
+        report.process_trace()
+        io_queue.put(report.std_output)
+
+    def analysis(self, dabase_list):
+        """
+        Analize a list of database files.
+        """
+        import multiprocessing
+        process_list=[]
+        queue_list={}
+
+        for database in dabase_list:
+            queue = multiprocessing.Queue()
+            process = multiprocessing.Process(target=self.analysis_thread, args=[database, queue])
+            process.start()
+
+            process_list.append((process, queue))
+
+        for process, queue in process_list:
+            std_out=queue.get()
+            for cpu in std_out:
+                for line in std_out[cpu]:
+                    print(line)
+            process.join()
+
+# -------------------- Online stats --------------------
+class RtslStats(RtslCmdOptions):
+
+    __s=None
+    __poll_delay=1
+    __quite=False
+    __variable=""
+
+    def __init__(self, variable="poid", delay=1, quite=False, duration="1m"):
+        self.__variable = variable;
+        self.__delay=delay
+        self.quite=quite
+        self.duration = self.duration_to_seconds(duration)
+
+        try:
+            import rt_sched_latency
+        except Exception as e:
+            raise Exception("Could not find the rt_sched_latency library")
+
+        try:
+            self.rtsl_check_interface()
+        except Exception as e:
+            raise Exception("Cannot access RTSL interface: %s" % e.strerror)
+
+        self.__s = rt_sched_latency.RTSLThreadVarStats(self.__variable)
+
+    def __wait_quite(self):
+        try:
+            time.sleep(self.duration)
+        except KeyboardInterrupt:
+            print()
+            return
+
+    def __wait_print(self):
+
+        loop=int(self.duration/self.__poll_delay)
+        last=self.duration % self.__poll_delay
+
+        for i in range(0, loop):
+            try:
+                self.__s.updata_results()
+                os.system('clear')
+                print("Hit ^C to stop")
+                self.__s.print()
+                time.sleep(self.__poll_delay)
+            except KeyboardInterrupt:
+                os.system('clear')
+                print()
+                return
+
+        # The residual sleep, if the duration is not multiple of poll
+        if last:
+            time.sleep(last)
+
+        os.system('clear')
+        return
+
+    def run(self):
+        self.rtsl_enable()
+
+        self.__s.run()
+        if self.__quite:
+            self.__wait_quite()
+        else:
+            self.__wait_print()
+
+        self.rtsl_disable()
+
+    def print_results(self):
+        print("Histogram for %s"  % (self.__variable))
+        self.__s.print()
+
+    def plot_results(self, merge=False):
+        self.__s.plot(merge=merge)
+
+# -------------------- subcommand main --------------------
+def main_record(params):
+    try:
+        rtsl=RtslTrace("record", params.duration, backend=params.tracer, verbose=params.verbose)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
+
+    rtsl.record()
+
+def main_report(params):
+    try:
+        rtsl=RtslTrace("report", verbose=params.verbose)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
+
+    rtsl.report(params)
+
+def main_stats(params):
+    try:
+        rtsl=RtslStats(variable=params.var, duration=params.duration, quite=params.quite)
+    except Exception as e:
+        print(str(e))
+        sys.exit(1)
+
+    rtsl.run()
+    rtsl.print_results()
+    if params.plot:
+        rtsl.plot_results(merge=params.merge)
+
+if __name__ == '__main__':
+    import platform
+    import argparse
+    import ntpath
+    import sys
+    import os
+    import time
+
+    parser = argparse.ArgumentParser(description='real-time scheduling latency')
+
+    subparsers = parser.add_subparsers(dest='subcommand', required=True)
+
+    # Sub commands
+    record_parser=subparsers.add_parser("record", help="record trace")
+    report_parser=subparsers.add_parser("report", help="report trace")
+    stats_parser=subparsers.add_parser("stats", help="report trace")
+
+    # Sub commands' main
+    record_parser.set_defaults(func=main_record)
+    report_parser.set_defaults(func=main_report)
+    stats_parser.set_defaults(func=main_stats)
+
+    # Global options
+    parser.add_argument('-v', "--vebose", dest="verbose",
+                        required=False, action='store_true',
+                        help="print verbose output (like tracer's output)")
+
+    # Record options
+    record_parser.add_argument('-d', "--duration", dest="duration",
+                        required=False, default=60,
+                        help="duration of the trace <n>{smdw}")
+
+    record_parser.add_argument("--tracer", choices=['perf', 'ftrace'], required=False,
+                        default="ftrace",
+                        help="define which trace subsystem to use (default ftrace)")
+
+    # Report options
+    report_parser.add_argument("--reparse", dest="reparse", action='store_true',
+                        required=False,
+                        default=False,
+                        help="force re-parsing the trace file")
+
+    # Stats options
+    stats_parser.add_argument('var', choices=['poid', 'paie', 'psd', 'dst'],
+                        default="poid",
+                        help="Variable to collect statistics")
+
+    stats_parser.add_argument('-d', "--duration", dest="duration",
+                        required=False, default=60,
+                        help="duration of the trace <n>{smdw}")
+
+    stats_parser.add_argument('-q', "--quite", dest="quite", action='store_true',
+                        required=False,
+                        default=False,
+                        help="run silently")
+
+    stats_parser.add_argument('-p', "--plot", dest="plot", action='store_true',
+                        required=False,
+                        default=False,
+                        help="Plot results")
+
+    stats_parser.add_argument("--plot-merge", dest="merge", action='store_true',
+                        required=False,
+                        default=False,
+                        help="Plot results")
+
+    params = parser.parse_args()
+
+    params.func(params)

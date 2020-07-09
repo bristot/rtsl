@@ -1,0 +1,93 @@
+From 71e1b6cffa772a5839c4f175db4ad52e1fbec89d Mon Sep 17 00:00:00 2001
+Message-Id: <71e1b6cffa772a5839c4f175db4ad52e1fbec89d.1589812797.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 21 Apr 2020 18:15:45 +0200
+Subject: [PATCH 01/16] sched/headers: Add preempt_[disable|enable]_sched
+
+Adds specific functions to disable preemption to protect the scheduler:
+
+ - preempt_disable_sched() to be used before calling __schedule()
+ - preempt_enable_sched() to be used after __schedule() return
+
+pointing to the methods that are already used before and after calling
+__schedule().
+
+No functional changes.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ include/linux/preempt.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/include/linux/preempt.h b/include/linux/preempt.h
+index e70120cef410..5c083c096d70 100644
+--- a/include/linux/preempt.h
++++ b/include/linux/preempt.h
+@@ -199,6 +199,8 @@ do { \
+ 	barrier(); \
+ } while (0)
+ 
++#define preempt_disable_sched() preempt_disable()
++
+ #define preempt_lazy_disable() \
+ do { \
+ 	inc_preempt_lazy_count(); \
+@@ -211,6 +213,8 @@ do { \
+ 	preempt_count_dec(); \
+ } while (0)
+ 
++#define preempt_enable_sched()	sched_preempt_enable_no_resched()
++
+ #ifdef CONFIG_PREEMPT_RT
+ # define preempt_enable_no_resched() sched_preempt_enable_no_resched()
+ # define preempt_check_resched_rt() preempt_check_resched()
+@@ -277,12 +281,16 @@ do { \
+ 	barrier(); \
+ } while (0)
+ 
++#define preempt_disable_sched_notrace()	preempt_disable_notrace()
++
+ #define preempt_enable_no_resched_notrace() \
+ do { \
+ 	barrier(); \
+ 	__preempt_count_dec(); \
+ } while (0)
+ 
++#define preempt_enable_sched_notrace()  preempt_enable_no_resched_notrace()
++
+ #else /* !CONFIG_PREEMPT_COUNT */
+ 
+ /*
+@@ -292,14 +300,18 @@ do { \
+  * region.
+  */
+ #define preempt_disable()			barrier()
++#define preempt_disable_sched()			barrier()
+ #define sched_preempt_enable_no_resched()	barrier()
+ #define preempt_enable_no_resched()		barrier()
+ #define preempt_enable()			barrier()
++#define preempt_enable_sched()			barrier()
+ #define preempt_check_resched()			do { } while (0)
+ 
+ #define preempt_disable_notrace()		barrier()
++#define preempt_disable_sched_notrace()		barrier()
+ #define preempt_enable_no_resched_notrace()	barrier()
+ #define preempt_enable_notrace()		barrier()
++#define preempt_enable_sched_notrace()		barrier()
+ #define preempt_check_resched_rt()		barrier()
+ #define preemptible()				0
+ 
+@@ -312,6 +324,10 @@ do { \
+ #undef sched_preempt_enable_no_resched
+ #undef preempt_enable_no_resched
+ #undef preempt_enable_no_resched_notrace
++#undef preempt_disable_sched
++#undef preempt_disable_sched_notrace
++#undef preempt_enable_sched
++#undef preempt_enable_sched_notrace
+ #undef preempt_check_resched
+ #endif
+ 
+-- 
+2.26.2
+
