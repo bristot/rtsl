@@ -89,7 +89,6 @@ class Rtsl:
         self.conn = sqlite3.connect(database_file, isolation_level=None, check_same_thread=False)
         self.conn.execute('pragma journal_mode = wal')
         self.conn.execute('pragma synchronous = 0')
-        self.conn.execute('pragma query_only = on')
         self.conn.execute('pragma cache_size = -200000')
 
     def create_database_cache(self):
@@ -140,6 +139,9 @@ class Rtsl:
 
     def insert_nmi(self, cpu, start_time, duration):
         self.conn.execute("INSERT INTO nmi VALUES (?, ?, ?)", (cpu, start_time, duration))
+
+    def insert_results(self, cpu, name, latency):
+        self.conn.execute("INSERT OR REPLACE INTO results VALUES (?, ?, ?)", (cpu, name, latency))
 
 # -------------------- python set interface --------------------
     # Interface: callbacks to be used to insert data
@@ -427,6 +429,8 @@ class Rtsl:
         except:
             self.per_case_results[case]={}
             results = self.per_case_results[case]
+
+        self.insert_results(cpu, case, latency)
 
         results[cpu]=latency
 

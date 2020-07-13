@@ -108,7 +108,8 @@ int init_db(void)
 				"CREATE TABLE psd (cpu integer PRIMARY KEY, value integer);"	\
 				"CREATE TABLE dst (cpu integer PRIMARY KEY, value integer);" 	\
 				"CREATE TABLE nmi (cpu integer, start_time integer PRIMARY KEY, duration integer);"	\
-				"CREATE TABLE irq (cpu integer, vector integer, start_time integer PRIMARY KEY, duration integer);";
+				"CREATE TABLE irq (cpu integer, vector integer, start_time integer PRIMARY KEY, duration integer);"	\
+				"CREATE TABLE results (cpu integer, name TEXT, latency integer, PRIMARY KEY(cpu, name));";
 	char *pragma = "pragma journal_mode=wal;"\
 		       	"pragma synchronous=0;";
 	int rc;
