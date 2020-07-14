@@ -1,10 +1,10 @@
 MAKE=make
 
 .PHONY: all
-all: make_rtsl make_ftrace make_perf
+all: make_rtsl make_trace
 
 .PHONY: install
-install: make_rtsl_install make_perf_install make_ftrace_install
+install: make_rtsl_install make_trace_install
 
 # -------------------- kernel module -------------------- 
 .PHONY: module
@@ -20,27 +20,17 @@ module_install:
 make_rtsl:
 	$(MAKE) -C src/python
 
-
 .PHONY: make_rtsl_install
 make_rtsl_install:
 	$(MAKE) -C src/python install
 
-# -------------------- user-space: perf -------------------- 
-.PHONY: make_perf
-make_perf: make_rtsl
-	$(MAKE) -C src/perf
-
-.PHONY: make_perf_install
-make_perf_install: make_perf make_rtsl_install
-	$(MAKE) -C src/perf install
-
-# -------------------- user-space: ftrace -------------------- 
-.PHONY: make_ftrace
-make_ftrace: make_rtsl
+# -------------------- user-space: trace -------------------- 
+.PHONY: make_trace
+make_trace: make_rtsl
 	$(MAKE) -C src/trace_plugin
 
-.PHONY: make_ftrace_install
-make_ftrace_install: make_ftrace make_rtsl_install
+.PHONY: make_trace_install
+make_trace_install: make_trace make_rtsl_install
 	$(MAKE) -C src/trace_plugin install
 
 .PHONY: clean
