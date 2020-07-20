@@ -23,6 +23,21 @@ import sqlite3
 import os
 
 class RtslAnalysis:
+    """
+    This is a "per-database" representation of the systems, aiming to produce
+    the per-cpu latency analysis for all CPUs present in a database.
+
+    The rtsl tool keeps one CPU per database, in such a way to enable the
+    execution of one thread analysis per CPU, which is a good heuristic,
+    assuming that the trace and the report will be done on the same system
+    (fully parallelized).
+
+    But it might as well be the case that we decided to merge multiple databases
+    into a single database. At this point, I am not sure what will happen so
+    that I will keep things as they are, removing the CPU field in the future if
+    we decide to keep only one CPU per database.
+    """
+
     conn=None
     infinito=999999999
 
