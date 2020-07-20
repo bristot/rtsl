@@ -46,6 +46,7 @@ class RtslDatabase:
             raise Exception("Database %s does not exist" % database_file)
 
         self.__conn_database(database_file)
+        self.create_database_results()
 
     def __conn_database(self, database_file="trace.rtsl"):
         self.conn = sqlite3.connect(database_file, isolation_level=None, check_same_thread=False)
@@ -81,6 +82,15 @@ class RtslDatabase:
 
                 c.execute("INSERT OR REPLACE INTO cache_irq_owcet VALUES (?, ?, ?)", (cpu, vector, owcet))
                 c.execute("INSERT OR REPLACE INTO cache_irq_omiat VALUES (?, ?, ?)", (cpu, vector, miat))
+        self.conn.commit()
+
+    def create_database_results(self):
+        c = self.conn.cursor()
+        c.execute('''DROP TABLE IF EXISTS analysis_output''')
+        c.execute('''DROP TABLE IF EXISTS results''')
+
+        c.execute('''CREATE TABLE analysis_output (cpu integer, line text)''')
+        c.execute('''CREATE TABLE results (cpu integer, name TEXT, latency integer, PRIMARY KEY(cpu, name))''')
         self.conn.commit()
 
 # -------------------- CPU gets --------------------
@@ -303,6 +313,8 @@ class RtslDatabase:
 
         return results
 
+    def insert_analysis_output(self, cpu, line):
+        self.conn.execute("INSERT INTO analysis_output VALUES (?, ?)", (cpu, line))
 
 class RtslAnalysis(RtslDatabase):
     has_cyclictest_results=False
@@ -350,6 +362,7 @@ class RtslAnalysis(RtslDatabase):
             cpu_buffer=self.std_output[cpu]
 
         cpu_buffer.append(line)
+        self.insert_analysis_output(cpu, line)
 
     def __save_results(self, cpu, latency, case):
         self.insert_results(cpu, case, latency)
@@ -358,9 +371,9 @@ class RtslAnalysis(RtslDatabase):
         """
         Adds a line with the results of the analysis.
         """
-        out_string="\t\tLatency = %9d with %s" % (latency, case)
+        line="\t\tLatency = %9d with %s" % (latency, case)
         if (self.__print_sync):
-            print(out_string)
+            print(line)
             return
 
         try:
@@ -369,8 +382,9 @@ class RtslAnalysis(RtslDatabase):
             self.std_output[cpu]=[]
             cpu_buffer=self.std_output[cpu]
 
-        cpu_buffer.append(out_string)
+        cpu_buffer.append(line)
 
+        self.insert_analysis_output(cpu, line)
         self.__save_results(cpu, latency, case)
 
 # -------------------- Analysis --------------------
