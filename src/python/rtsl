@@ -330,23 +330,6 @@ class RtslAnalysis(RtslDatabase):
         super().__init__(database_file)
         self.__print_sync=print_sync
 
-    def print_header(self, line):
-        """
-        Adds a line to the header
-        """
-
-        if (self.__print_sync):
-            print(line)
-            return
-
-        try:
-            header=self.std_output["header"]
-        except:
-            self.std_output["header"]=[]
-            header=self.std_output["header"]
-
-        header.append(line)
-
     def print_cpu_analysis(self, cpu, line):
         """
         Adds a line of analysis to the per-cpu analysis.
@@ -854,21 +837,6 @@ class RtslAnalysis(RtslDatabase):
 
         for cpu in cpus:
             self.__process_trace_cpu(cpu)
-
-    def add_header(self):
-        self.print_header("  ==== Latency Analisyis! ==== ")
-        self.print_header("\tTime unit is nanosecods")
-        self.print_header("\tpoid  = Preemption or Interrupt disabled [ not to schedule ] window")
-        self.print_header("\tpaie  = Preemption and Interrupts enabled")
-        self.print_header("\tpsd   = Preemption disabled to schedule window")
-        self.print_header("\tdst   = Delay of scheduling tail")
-        self.print_header("\tifl   = Interference free latency")
-        self.print_header("\tINT   = Interrupts")
-        self.print_header("\tIRQ   = Maskable interrupts")
-        self.print_header("\tNMI   = Non-maskable interrupts")
-        self.print_header("\toWCET = Observed Worst Case Execution Time")
-        self.print_header("\toMIAT = Observed Minimun Inter-arrival Time")
-        self.print_header("")
 
 # -------------------- Plot --------------------
     def __xticks_format_labels(self, cpus, results, xticks_step):
@@ -1616,6 +1584,21 @@ class RtslTrace(RtslCmdOptions):
         report.process_trace()
         io_queue.put(report.std_output)
 
+    def analysis_print_header(self):
+        print("  ==== Latency Analisyis! ==== ")
+        print("\tTime unit is nanosecods")
+        print("\tpoid  = Preemption or Interrupt disabled [ not to schedule ] window")
+        print("\tpaie  = Preemption and Interrupts enabled")
+        print("\tpsd   = Preemption disabled to schedule window")
+        print("\tdst   = Delay of scheduling tail")
+        print("\tifl   = Interference free latency")
+        print("\tINT   = Interrupts")
+        print("\tIRQ   = Maskable interrupts")
+        print("\tNMI   = Non-maskable interrupts")
+        print("\toWCET = Observed Worst Case Execution Time")
+        print("\toMIAT = Observed Minimun Inter-arrival Time")
+        print("")
+
     def analysis(self, dabase_list):
         """
         Analize a list of database files.
@@ -1623,6 +1606,8 @@ class RtslTrace(RtslCmdOptions):
         import multiprocessing
         process_list=[]
         queue_list={}
+
+        self.analysis_print_header()
 
         for database in dabase_list:
             queue = multiprocessing.Queue()
