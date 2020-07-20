@@ -31,7 +31,6 @@ class RtslAnalysis:
 
     __print_sync=True
 
-    per_case_results={}
     std_output={}
 
     bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
