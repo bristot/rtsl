@@ -22,7 +22,7 @@ import math
 import sqlite3
 import os
 
-class RtslAnalysis:
+class RtslDatabase:
     """
     This is a "per-database" representation of the systems, aiming to produce
     the per-cpu latency analysis for all CPUs present in a database.
@@ -41,23 +41,11 @@ class RtslAnalysis:
     conn=None
     infinito=999999999
 
-    has_cyclictest_results=False
-    __cyclictest_data=[]
-
-    __print_sync=True
-
-    std_output={}
-
-    bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
-
-    def __init__(self, database_file="trace.rtsl", print_sync=True):
-
+    def __init__(self, database_file="trace.rtsl"):
         if os.path.exists(database_file) == False:
             raise Exception("Database %s does not exist" % database_file)
 
-        # Init the cache in the case it was not created
         self.__conn_database(database_file)
-        self.__print_sync=print_sync
 
     def __conn_database(self, database_file="trace.rtsl"):
         self.conn = sqlite3.connect(database_file, isolation_level=None, check_same_thread=False)
@@ -315,7 +303,21 @@ class RtslAnalysis:
 
         return results
 
-# -------------------- Output buffers --------------------
+
+class RtslAnalysis(RtslDatabase):
+    has_cyclictest_results=False
+    __cyclictest_data=[]
+
+    __print_sync=True
+
+    std_output={}
+
+    bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
+
+    def __init__(self, database_file="trace.rtsl", print_sync=True):
+        super().__init__(database_file)
+        self.__print_sync=print_sync
+
     def print_header(self, line):
         """
         Adds a line to the header
