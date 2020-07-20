@@ -870,40 +870,6 @@ class RtslAnalysis(RtslDatabase):
         self.print_header("\toMIAT = Observed Minimun Inter-arrival Time")
         self.print_header("")
 
-    def print_trace_cpu(self, cpu):
-        try:
-            print_buff=self.std_output[cpu]
-        except:
-            raise Exception("Printing a CPU that was not processed")
-
-        for line in print_buff:
-            print(line)
-
-    def print_trace(self, print_header=True):
-        # it only makes sense to print if we are assync
-        if self.__print_sync:
-            return
-
-        if print_header:
-            try:
-                print_buff=self.std_output["header"]
-            except:
-                raise Exception("The trace was not processed")
-
-            for line in print_buff:
-                print(line)
-
-        cpus = self.get_cpu_list()
-        cpus.sort()
-
-        for cpu in cpus:
-            self.print_trace_cpu(cpu)
-
-    def process_results(self, cyclictest="cyclictest.txt"):
-        self.add_header()
-        self.process_trace(cyclictest)
-        self.print_trace()
-
 # -------------------- Plot --------------------
     def __xticks_format_labels(self, cpus, results, xticks_step):
         xticks_labels=[]
