@@ -325,8 +325,7 @@ class RtslDatabase:
 
         return results
 
-
-class RtslAnalysis(RtslDatabase):
+class RtslINTAnalysis(RtslDatabase):
     has_cyclictest_results=False
     __cyclictest_data=[]
 
@@ -789,6 +788,20 @@ class RtslAnalysis(RtslDatabase):
         return window, "Sliding Window with oWCET"
 
 # -------------------- process traces --------------------
+
+class RtslAnalysis(RtslINTAnalysis):
+
+    cyclictest=False
+    irq_none=False
+    irq_single=False
+    irq_single_of_each=False
+    irq_sporadic=False
+    irq_sliding_window=False
+    irq_sliding_window_owcet=False
+
+    def __init__(self, database_file="trace.rtsl"):
+        super().__init__(database_file)
+
     def __process_trace_cpu(self, cpu):
         self.print_cpu_analysis(cpu, "CPU: %3d" % cpu)
 
@@ -797,22 +810,28 @@ class RtslAnalysis(RtslDatabase):
         psd=self.get_psd(cpu)
         dst=self.get_dst(cpu)
 
-        if self.has_cyclictest_results:
-            latency, case = self.print_cyclictest(cpu)
-
         ifl = self.interference_free_latency(cpu, poid, paie, psd, dst)
+        if self.cyclictest:
+            if self.has_cyclictest_results:
+                latency, case = self.print_cyclictest(cpu)
 
-        self.no_interrupt(cpu, ifl)
+        if self.irq_none:
+            self.no_interrupt(cpu, ifl)
 
-        self.single_interrupt(cpu, ifl)
+        if self.irq_single:
+            self.single_interrupt(cpu, ifl)
 
-        self.single_of_each_interrupt(cpu, ifl)
+        if self.irq_single_of_each:
+            self.single_of_each_interrupt(cpu, ifl)
 
-        self.sporadic_interrupt(cpu, ifl)
+        if self.irq_sporadic:
+            self.sporadic_interrupt(cpu, ifl)
 
-        self.sliding_window_interrupt(cpu, ifl)
+        if self.irq_sliding_window:
+            self.sliding_window_interrupt(cpu, ifl)
 
-        self.sliding_window_interrupt_owcet(cpu, ifl)
+        if self.irq_sliding_window_owcet:
+            self.sliding_window_interrupt_owcet(cpu, ifl)
 
     def process_trace(self, cyclictest="cyclictest.txt"):
         cpus = self.get_cpu_list()
@@ -1566,6 +1585,7 @@ class RtslTrace(RtslCmdOptions):
         """
 
         report=RtslAnalysis(database)
+        report.irq_sliding_window=True
         report.process_trace()
         io_queue.put(report.std_output)
 
