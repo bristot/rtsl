@@ -987,31 +987,7 @@ class RtslAnalysis(RtslINTAnalysis):
         fig.tight_layout()
         plt.savefig(output_file)
 
-class RtslCmdOptions(RtslModule):
-    duration=0
-
-    def duration_to_seconds(self, duration):
-        "Convert a time input TIME<smhdw> to the value in seconds"
-
-        # yes, from hwlatdetect... :-)
-        if str(duration).isdigit():
-            return int(duration)
-        elif duration[-2].isalpha():
-            raise RuntimeError("illegal suffix for seconds: '%s'" % duration[-2:-1])
-        elif duration[-1:] == 's':
-            return int(duration[0:-1])
-        elif duration[-1:] == 'm':
-            return int(duration[0:-1]) * 60
-        elif duration[-1:] == 'h':
-            return int(duration[0:-1]) * 3600
-        elif duration[-1:] == 'd':
-            return int(duration[0:-1]) * 86400
-        elif duration[-1:] == 'w':
-            return int(duration[0:-1]) * 86400 * 7
-        else:
-            raise RuntimeError("invalid input for seconds: '%s'" % duration)
-
-class RtslTrace(RtslCmdOptions):
+class RtslTrace:
     __modes={ "record" : 1, "report" : 2, }
     __mode=None
 
@@ -1037,6 +1013,7 @@ class RtslTrace(RtslCmdOptions):
 
     __working_dir="rtsl_data"
     __trace_file=""
+    __module=None
 
     def __init__(self, mode, duration=60, backend="perf", cyclictest=False, cyclictest_parameters="", verbose=False, working_dir="rtsl_data"):
 
@@ -1051,15 +1028,13 @@ class RtslTrace(RtslCmdOptions):
 
         if mode == "record":
             # try to read the module
+            self.__module=RtslModule()
             try:
-                self.rtsl_check_interface()
+                self.__module.rtsl_check_interface()
             except Exception as e:
                 raise Exception("Cannot access RTSL interface: %s" % e.strerror)
 
-            try:
-                self.duration = self.duration_to_seconds(duration)
-            except Exception as e:
-                raise Exception("Invalid Duration: %s" % e)
+            self.duration = duration
 
             if cyclictest == True:
                 self.__run_cyclictest = true
@@ -1169,7 +1144,7 @@ class RtslTrace(RtslCmdOptions):
         # if it runs, enable rtsl events. This includes hooking to
         # the tracepoints and start the values of the thread windows.
         try:
-            self.rtsl_enable()
+            self.__module.rtsl_enable()
         except Exception as e:
             trace_cmd.kill()
             raise Exception("Error enabling RTSL: %s" % e.strerror)
@@ -1179,7 +1154,7 @@ class RtslTrace(RtslCmdOptions):
 
         # and now disable the rtsl (unhook the tracepoints)
         try:
-            self.rtsl_disable()
+            self.__module.rtsl_disable()
         except Exception as e:
             raise Exception("Error disabling RTSL: %s" % e.strerror)
 
@@ -1632,21 +1607,23 @@ class RTSLThreadVarStats:
         else:
             self.__plot_all(plt, hsize, vsize, output_file=output_file)
 
-class RtslStats(RtslCmdOptions):
+class RtslStats:
 
     __s=None
     __poll_delay=1
     __quite=False
     __variable=""
+    __module=None
 
-    def __init__(self, variable="poid", delay=1, quite=False, duration="1m"):
+    def __init__(self, variable="poid", delay=1, quite=False, duration="60"):
         self.__variable = variable;
         self.__delay=delay
         self.quite=quite
-        self.duration = self.duration_to_seconds(duration)
+        self.duration = duration
 
+        self.__module=RtslModule()
         try:
-            self.rtsl_check_interface()
+            self.__module.rtsl_check_interface()
         except Exception as e:
             raise Exception("Cannot access RTSL interface: %s" % e.strerror)
 
@@ -1684,7 +1661,7 @@ class RtslStats(RtslCmdOptions):
         return
 
     def run(self):
-        self.rtsl_enable()
+        self.__module.rtsl_enable()
 
         self.__s.run()
         if self.__quite:
@@ -1692,7 +1669,7 @@ class RtslStats(RtslCmdOptions):
         else:
             self.__wait_print()
 
-        self.rtsl_disable()
+        self.__module.rtsl_disable()
 
     def print_results(self):
         print("Histogram for %s"  % (self.__variable))
@@ -1702,9 +1679,33 @@ class RtslStats(RtslCmdOptions):
         self.__s.plot(merge=merge)
 
 # -------------------- subcommand main --------------------
+def duration_to_seconds(duration):
+    "Convert a time input TIME<smhdw> to the value in seconds"
+
+    # yes, from hwlatdetect... :-)
+    if str(duration).isdigit():
+        return int(duration)
+    elif duration[-2].isalpha():
+        raise RuntimeError("illegal suffix for seconds: '%s'" % duration[-2:-1])
+    elif duration[-1:] == 's':
+        return int(duration[0:-1])
+    elif duration[-1:] == 'm':
+        return int(duration[0:-1]) * 60
+    elif duration[-1:] == 'h':
+        return int(duration[0:-1]) * 3600
+    elif duration[-1:] == 'd':
+        return int(duration[0:-1]) * 86400
+    elif duration[-1:] == 'w':
+        return int(duration[0:-1]) * 86400 * 7
+    else:
+        raise RuntimeError("invalid input for seconds: '%s'" % duration)
+
 def main_record(params):
+
+    duration=duration_to_seconds(params.duration)
+
     try:
-        rtsl=RtslTrace("record", params.duration, backend=params.tracer, verbose=params.verbose)
+        rtsl=RtslTrace("record", duration=duration, backend=params.tracer, verbose=params.verbose)
     except Exception as e:
         print(str(e))
         sys.exit(1)
@@ -1721,8 +1722,11 @@ def main_report(params):
     rtsl.report(params)
 
 def main_stats(params):
+
+    duration=duration_to_seconds(params.duration)
+
     try:
-        rtsl=RtslStats(variable=params.var, duration=params.duration, quite=params.quite)
+        rtsl=RtslStats(variable=params.var, duration=duration, quite=params.quite)
     except Exception as e:
         print(str(e))
         sys.exit(1)
