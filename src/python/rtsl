@@ -945,223 +945,6 @@ class RtslAnalysis(RtslINTAnalysis):
         fig.tight_layout()
         plt.savefig(output_file)
 
-class RTSLThreadVarStats:
-    __vars={ "poid" : 1, "paie" : 2, "psd": 3, "dst" : 4 }
-    __var=""
-
-    __cpus=0
-    __max_value=0
-    __results_micro={}
-
-    __bpf_program=None
-
-    __base_program="""
-    BPF_PERCPU_ARRAY(micro, u64, 1001);
-
-    TRACEPOINT_PROBE(rtsl, VAR) {
-            u64 value = args->value;
-            u64 *entry, new;
-            int idx;
-
-            if (value < 1000000) {
-                /*
-                 * This is an upper bound that means within a given
-                 * microsecond. So increase 999 ns, to fit in the next
-                 * bucket, unless it is an rounded number.
-                 */
-                value += 999;
-                idx = value/1000;
-
-                entry = micro.lookup(&idx);
-                if (entry) {
-                    new = *entry + 1;
-                    micro.update(&idx, &new);
-                }
-            } else {
-                /*
-                 * A millisecond value is not expected on the RT.
-                 * At least not in a correct enviroment.
-                 * In this case, put in the last bucket a sing that
-                 * there is something really wrong.
-                 */
-                idx = 1001;
-                entry = micro.lookup(&idx);
-                if (entry) {
-                    new = *entry + 1;
-                    micro.update(&idx, &new);
-                }
-            }
-
-            return 0;
-    }
-    """
-
-    __program=""
-
-    def __init__(self, var="poid"):
-        global BPF
-        global sleep
-
-        from time import sleep
-        from bcc import BPF
-
-        if self.__vars.get(var) == None:
-            raise Exception("Unknown mode: %s" % mode)
-        self.__var=var
-
-        self.__program=self.__base_program.replace("VAR", var)
-
-    def run(self):
-        print("Tracing... Hit Ctrl-C to end.")
-        self.__bpf_program = BPF(text=self.__program)
-
-    def stop(self):
-        event="rtsl:" + self.__var
-        self.__bpf_program.detach_tracepoint(event)
-
-    def __parse_results(self, micro):
-        # Save the number of CPdUs
-        self.__cpus=micro.total_cpu
-
-        self.__results_micro={}
-
-        # initialize the values with 0
-        for i in range(self.__cpus):
-            self.__results_micro[i]={}
-            for y in range(1001):
-                self.__results_micro[i][y]=0
-
-        for duration in micro.keys():
-            # each value is a per_cpu counter of number of times a given key duration happened.
-            cpu=0
-            for value in micro.getvalue(duration):
-                self.__results_micro[cpu][duration.value]=value
-                cpu+=1
-
-    def updata_results(self):
-        micro = self.__bpf_program.get_table("micro")
-        self.__parse_results(micro)
-
-    def cpu_duration_list(self, cpu):
-        duration_list=[]
-        for duration in self.__results_micro[cpu]:
-            duration_list.append(self.__results_micro[cpu][duration])
-        return duration_list
-
-    def duration_cpu_list(self, duration):
-        cpu_list=[]
-        for cpu in range(self.__cpus):
-            cpu_list.append(self.__results_micro[cpu][duration])
-
-        return cpu_list
-
-    def print(self):
-
-        print("y-axis = duration in us, x-axis = CPU, cell: times that a given y-duration happened on a x-CPU")
-
-        cpus="     "
-        for i in range(self.__cpus):
-            cpus = "%s %9d" % (cpus, i)
-        print(cpus + "        TOTAL")
-
-        for index in range(1000):
-            duration=self.duration_cpu_list(index)
-            output=""
-            total_count=0
-            for cpu_count in duration:
-                output = "%s %9d" % (output, cpu_count)
-                total_count += cpu_count
-
-            if total_count:
-                print("%3d: %10s = %10d" % (index, output, total_count))
-
-    def __get_max_and_hide_after(self, counters):
-            max_idx = 0
-
-            # Get the largest index that has entries.
-            for idx in range(1001):
-                if counters[idx] != 0:
-                    max_idx = idx
-
-            # change the zeros do nan so the are not displayed by
-            # matplotlib
-            for idx in range(max_idx+1, 1001):
-                counters[idx] = float('nan')
-
-            return max_idx, counters
-
-    def __plot_all_in_one(self, plt, hsize=16, vsize=7, output_file="stats.svg"):
-        cpus=[x for x in range(self.__cpus)]
-        buckets=[x for x in range(1001)]
-        x_max=0
-
-        fig, ax = plt.subplots(figsize=(hsize,vsize), frameon=False)
-        for cpu in cpus:
-            counters=self.cpu_duration_list(cpu)
-            max_idx, counters = self.__get_max_and_hide_after(counters)
-
-            # If the largest is largest over all, save it.
-            if x_max < max_idx:
-                x_max = max_idx + 1
-
-            label="%d (max = %d)" % (cpu, max_idx)
-            ax.plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
-
-        # Trucate the x-axis with largest delay
-        ax.set_xlim(1, x_max)
-
-        ax.legend()
-
-        fig.tight_layout()
-        plt.savefig(output_file)
-
-    def __plot_all(self, plt, hsize=16, vsize=7, output_file="stats.svg", plots_per_line=4):
-        cpus=[x for x in range(self.__cpus)]
-        buckets=[x for x in range(1001)]
-        x_max=0
-
-        lines = int(self.__cpus/ plots_per_line)
-        if self.__cpus % plots_per_line:
-            lines += 1
-
-        fig, axs = plt.subplots(lines, plots_per_line, sharey=True, figsize=(hsize,vsize), frameon=False)
-
-        for cpu in cpus:
-            counters=self.cpu_duration_list(cpu)
-            max_idx, counters = self.__get_max_and_hide_after(counters)
-
-            # If the largest is largest over all, save it.
-            if x_max < max_idx:
-                x_max = max_idx + 1
-
-            label="%d (max = %d)" % (cpu, max_idx)
-
-            line=int(cpu / plots_per_line)
-            col=int(cpu % plots_per_line)
-            axs[line, col].plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
-
-        # Trucate the x-axis with largest delay (plus one)
-        for cpu in cpus:
-            line=int(cpu / plots_per_line)
-            col=int(cpu % plots_per_line)
-
-            axs[line, col].set_xlim(1, x_max)
-            axs[line, col].set_ylim(0)
-            axs[line, col].legend()
-
-        fig.tight_layout()
-        plt.savefig(output_file)
-
-    def plot(self, hsize=16, vsize=7, merge=False, output_file="stats.svg"):
-        try:
-            import matplotlib.pyplot as plt
-        except:
-            raise Exception("Cannot use matplotlib")
-
-        if merge:
-            self.__plot_all_in_one(plt, hsize, vsize, output_file=output_file)
-        else:
-            self.__plot_all(plt, hsize, vsize, output_file=output_file)
 
 class RtslModule:
     __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
@@ -1632,6 +1415,224 @@ class RtslTrace(RtslCmdOptions):
                 print(line)
 
 # -------------------- Online stats --------------------
+class RTSLThreadVarStats:
+    __vars={ "poid" : 1, "paie" : 2, "psd": 3, "dst" : 4 }
+    __var=""
+
+    __cpus=0
+    __max_value=0
+    __results_micro={}
+
+    __bpf_program=None
+
+    __base_program="""
+    BPF_PERCPU_ARRAY(micro, u64, 1001);
+
+    TRACEPOINT_PROBE(rtsl, VAR) {
+            u64 value = args->value;
+            u64 *entry, new;
+            int idx;
+
+            if (value < 1000000) {
+                /*
+                 * This is an upper bound that means within a given
+                 * microsecond. So increase 999 ns, to fit in the next
+                 * bucket, unless it is an rounded number.
+                 */
+                value += 999;
+                idx = value/1000;
+
+                entry = micro.lookup(&idx);
+                if (entry) {
+                    new = *entry + 1;
+                    micro.update(&idx, &new);
+                }
+            } else {
+                /*
+                 * A millisecond value is not expected on the RT.
+                 * At least not in a correct enviroment.
+                 * In this case, put in the last bucket a sing that
+                 * there is something really wrong.
+                 */
+                idx = 1001;
+                entry = micro.lookup(&idx);
+                if (entry) {
+                    new = *entry + 1;
+                    micro.update(&idx, &new);
+                }
+            }
+
+            return 0;
+    }
+    """
+
+    __program=""
+
+    def __init__(self, var="poid"):
+        global BPF
+        global sleep
+
+        from time import sleep
+        from bcc import BPF
+
+        if self.__vars.get(var) == None:
+            raise Exception("Unknown mode: %s" % mode)
+        self.__var=var
+
+        self.__program=self.__base_program.replace("VAR", var)
+
+    def run(self):
+        print("Tracing... Hit Ctrl-C to end.")
+        self.__bpf_program = BPF(text=self.__program)
+
+    def stop(self):
+        event="rtsl:" + self.__var
+        self.__bpf_program.detach_tracepoint(event)
+
+    def __parse_results(self, micro):
+        # Save the number of CPdUs
+        self.__cpus=micro.total_cpu
+
+        self.__results_micro={}
+
+        # initialize the values with 0
+        for i in range(self.__cpus):
+            self.__results_micro[i]={}
+            for y in range(1001):
+                self.__results_micro[i][y]=0
+
+        for duration in micro.keys():
+            # each value is a per_cpu counter of number of times a given key duration happened.
+            cpu=0
+            for value in micro.getvalue(duration):
+                self.__results_micro[cpu][duration.value]=value
+                cpu+=1
+
+    def updata_results(self):
+        micro = self.__bpf_program.get_table("micro")
+        self.__parse_results(micro)
+
+    def cpu_duration_list(self, cpu):
+        duration_list=[]
+        for duration in self.__results_micro[cpu]:
+            duration_list.append(self.__results_micro[cpu][duration])
+        return duration_list
+
+    def duration_cpu_list(self, duration):
+        cpu_list=[]
+        for cpu in range(self.__cpus):
+            cpu_list.append(self.__results_micro[cpu][duration])
+
+        return cpu_list
+
+    def print(self):
+
+        print("y-axis = duration in us, x-axis = CPU, cell: times that a given y-duration happened on a x-CPU")
+
+        cpus="     "
+        for i in range(self.__cpus):
+            cpus = "%s %9d" % (cpus, i)
+        print(cpus + "        TOTAL")
+
+        for index in range(1000):
+            duration=self.duration_cpu_list(index)
+            output=""
+            total_count=0
+            for cpu_count in duration:
+                output = "%s %9d" % (output, cpu_count)
+                total_count += cpu_count
+
+            if total_count:
+                print("%3d: %10s = %10d" % (index, output, total_count))
+
+    def __get_max_and_hide_after(self, counters):
+            max_idx = 0
+
+            # Get the largest index that has entries.
+            for idx in range(1001):
+                if counters[idx] != 0:
+                    max_idx = idx
+
+            # change the zeros do nan so the are not displayed by
+            # matplotlib
+            for idx in range(max_idx+1, 1001):
+                counters[idx] = float('nan')
+
+            return max_idx, counters
+
+    def __plot_all_in_one(self, plt, hsize=16, vsize=7, output_file="stats.svg"):
+        cpus=[x for x in range(self.__cpus)]
+        buckets=[x for x in range(1001)]
+        x_max=0
+
+        fig, ax = plt.subplots(figsize=(hsize,vsize), frameon=False)
+        for cpu in cpus:
+            counters=self.cpu_duration_list(cpu)
+            max_idx, counters = self.__get_max_and_hide_after(counters)
+
+            # If the largest is largest over all, save it.
+            if x_max < max_idx:
+                x_max = max_idx + 1
+
+            label="%d (max = %d)" % (cpu, max_idx)
+            ax.plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
+
+        # Trucate the x-axis with largest delay
+        ax.set_xlim(1, x_max)
+
+        ax.legend()
+
+        fig.tight_layout()
+        plt.savefig(output_file)
+
+    def __plot_all(self, plt, hsize=16, vsize=7, output_file="stats.svg", plots_per_line=4):
+        cpus=[x for x in range(self.__cpus)]
+        buckets=[x for x in range(1001)]
+        x_max=0
+
+        lines = int(self.__cpus/ plots_per_line)
+        if self.__cpus % plots_per_line:
+            lines += 1
+
+        fig, axs = plt.subplots(lines, plots_per_line, sharey=True, figsize=(hsize,vsize), frameon=False)
+
+        for cpu in cpus:
+            counters=self.cpu_duration_list(cpu)
+            max_idx, counters = self.__get_max_and_hide_after(counters)
+
+            # If the largest is largest over all, save it.
+            if x_max < max_idx:
+                x_max = max_idx + 1
+
+            label="%d (max = %d)" % (cpu, max_idx)
+
+            line=int(cpu / plots_per_line)
+            col=int(cpu % plots_per_line)
+            axs[line, col].plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
+
+        # Trucate the x-axis with largest delay (plus one)
+        for cpu in cpus:
+            line=int(cpu / plots_per_line)
+            col=int(cpu % plots_per_line)
+
+            axs[line, col].set_xlim(1, x_max)
+            axs[line, col].set_ylim(0)
+            axs[line, col].legend()
+
+        fig.tight_layout()
+        plt.savefig(output_file)
+
+    def plot(self, hsize=16, vsize=7, merge=False, output_file="stats.svg"):
+        try:
+            import matplotlib.pyplot as plt
+        except:
+            raise Exception("Cannot use matplotlib")
+
+        if merge:
+            self.__plot_all_in_one(plt, hsize, vsize, output_file=output_file)
+        else:
+            self.__plot_all(plt, hsize, vsize, output_file=output_file)
+
 class RtslStats(RtslCmdOptions):
 
     __s=None
