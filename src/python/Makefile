@@ -16,5 +16,4 @@ clean:
 
 .PHONY: install
 install:
-	$(INSTALL) rt_sched_latency.py -D -m 644 $(DESTDIR)$(PYLIB)/rt_sched_latency.py
 	$(INSTALL) rtsl -D -m 755 $(DESTDIR)${bindir}/rtsl
