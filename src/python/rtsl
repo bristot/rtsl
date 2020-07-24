@@ -373,8 +373,6 @@ class RtslINTAnalysis(RtslDatabase):
 
     std_output={}
 
-    bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
-
     def __init__(self, database_file="trace.rtsl"):
         super().__init__(database_file, reset_results=True)
 
@@ -559,6 +557,7 @@ class RtslINTAnalysis(RtslDatabase):
 
         if wont_converge:
             self.print_cpu_analysis(cpu, "\t\tDid not converge.")
+            self.print_latency(cpu, 0, "Sporadic")
             return
 
         c_latency=ifl
@@ -575,7 +574,8 @@ class RtslINTAnalysis(RtslDatabase):
             window = new_window
             if window > 100000000:
                 self.print_cpu_analysis(cpu, "\t\tlatency higher than 100ms, Did not converge")
-                break
+                self.print_latency(cpu, 0, "Sporadic")
+                return
 
         latency = window
         self.print_latency(cpu, latency, "Sporadic")
@@ -829,17 +829,15 @@ class RtslINTAnalysis(RtslDatabase):
 
         return window, "Sliding Window with oWCET"
 
-# -------------------- process traces --------------------
-
-class RtslAnalysis(RtslINTAnalysis):
+class RtslCPUAnalysis(RtslINTAnalysis):
 
     cyclictest=False
-    irq_none=False
-    irq_single=False
-    irq_single_of_each=False
-    irq_sporadic=False
-    irq_sliding_window=False
-    irq_sliding_window_owcet=False
+    irq_none=True
+    irq_single=True
+    irq_single_of_each=True
+    irq_sporadic=True
+    irq_sliding_window=True
+    irq_sliding_window_owcet=True
 
     def __init__(self, database_file="trace.rtsl"):
         super().__init__(database_file)
@@ -884,7 +882,100 @@ class RtslAnalysis(RtslINTAnalysis):
         for cpu in cpus:
             self.__process_trace_cpu(cpu)
 
-# -------------------- Plot --------------------
+class RtslAnalysis:
+
+    __db_list=[]
+    __cpu_list=[]
+
+    bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
+
+    def __init__(self, rtsl_working_dir="rtsl_data"):
+
+        # This is a dictionary of cpu = file. It is used to
+        # sort the __db_list by the CPU index.
+        files_dict={}
+
+        # Read the files in the working dir:
+        for (dirpath, dirnames, filenames) in os.walk(rtsl_working_dir):
+            for file in filenames:
+
+                # Check if it is a .rtsl database
+                if file[-5:] == ".rtsl":
+
+                    # Get the CPU id from the "trace_ID_.rtsl" file
+                    cpu_id=file[6:-5]
+
+                    # Append to the dictionary of files indexed by the CPU
+                    files_dict[cpu_id]=file
+
+        if len(files_dict) == 0:
+            raise Exception("There is no rtsl database, did you run rtsl report?")
+
+        # get the list of CPUs
+        self.__cpu_list=list(files_dict.keys())
+
+        # sort them
+        self.__cpu_list.sort()
+
+        # fill the databased list sorted by the CPU index
+        for cpu in self.__cpu_list:
+            db_path="%s/%s" % (rtsl_working_dir, files_dict[cpu])
+            self.__db_list.append(db_path)
+
+    def analysis_thread(self, database, io_queue):
+        """
+        Analyze a database file, placing the output into a queue.
+        """
+
+        analysis=RtslCPUAnalysis(database)
+        analysis.irq_sliding_window=True
+        analysis.process_trace()
+        io_queue.put(analysis.std_output)
+
+    def run(self):
+        """
+        Analize a list of database files.
+        """
+        import multiprocessing
+        process_list=[]
+        queue_list={}
+
+        for database in self.__db_list:
+            queue = multiprocessing.Queue()
+            process = multiprocessing.Process(target=self.analysis_thread, args=[database, queue])
+            process.start()
+
+            process_list.append((process, queue))
+
+        for process, queue in process_list:
+            std_out=queue.get()
+            process.join()
+
+    def print_header(self):
+        print("  ==== Latency Analisyis! ==== ")
+        print("\tTime unit is nanosecods")
+        print("\tpoid  = Preemption or Interrupt disabled [ not to schedule ] window")
+        print("\tpaie  = Preemption and Interrupts enabled")
+        print("\tpsd   = Preemption disabled to schedule window")
+        print("\tdst   = Delay of scheduling tail")
+        print("\tifl   = Interference free latency")
+        print("\tINT   = Interrupts")
+        print("\tIRQ   = Maskable interrupts")
+        print("\tNMI   = Non-maskable interrupts")
+        print("\toWCET = Observed Worst Case Execution Time")
+        print("\toMIAT = Observed Minimun Inter-arrival Time")
+        print("")
+
+    def print_results(self):
+        self.print_header()
+
+        for database in self.__db_list:
+            report=RtslDatabase(database)
+
+            for line in report.get_analysis_output():
+                print(line)
+
+    # -------------------- Plot --------------------
     def __xticks_format_labels(self, cpus, results, xticks_step):
         xticks_labels=[]
         xticks_position=[]
@@ -905,29 +996,33 @@ class RtslAnalysis(RtslINTAnalysis):
 
         return xticks_labels, xticks_position;
 
+    def __plot_fill_results(self):
+        plot_results={}
+
+        for file in self.__db_list:
+            database=RtslDatabase(file)
+
+            for result in database.get_results():
+                cpu=result[0]
+                case=result[1]
+                latency=result[2]
+
+                try:
+                    results = plot_results[case]
+                except:
+                    plot_results[case]={}
+                    results = plot_results[case]
+
+                results[cpu]=latency
+
+        return plot_results
+
     # examples from the paper:
     # plot_results()
     # plot_results(output_file="output_compact.svg", hsize=7, vsize=4, title="", ymax=60 , ylabel="", xlabel="", legend=False, xtick_distance=4)
     # plot_results(output_file="output_ultra_compact.svg", hsize=4, vsize=4, title="", ymax=60 , ylabel="", xlabel="", legend=False, xtick_distance=0)
 
-    def __plot_fill_results(self):
-        plot_results={}
-        for result in get_results(self):
-            cpu=result[0]
-            case=result[1]
-            latency=result[2]
-
-            try:
-                results = plot_results[case]
-            except:
-                plot_results[case]={}
-                results = plot_results[case]
-
-            results[cpu]=latency
-
-        return plot_results
-
-    def plot_results(self, output_file="output.svg", hsize=16, vsize=7, title="Latency analysys", ymax=0 , ylabel="Latency (microseconds)", xlabel="CPU", legend=True, legend_loc="upper center", legend_ncol=8, xtick_distance=1, results=None):
+    def plot_results(self, output_file="rtsl_results.svg", hsize=16, vsize=7, title="Latency analysys", ymax=0 , ylabel="Latency (microseconds)", xlabel="CPU", legend=True, legend_loc="upper center", legend_ncol=8, xtick_distance=1):
 
         try:
             import matplotlib
@@ -936,13 +1031,11 @@ class RtslAnalysis(RtslINTAnalysis):
         except:
             raise Exception("Cannot use matplotlib or numpy")
 
-        number_of_cpus=0
-        number_of_case=0
+        number_of_cpus=len(self.__cpu_list)
 
-        if results == None:
-            results = self.__plot_fill_results(self)
+        results = self.__plot_fill_results()
 
-        cpus = self.get_cpu_list()
+        cpus = self.__cpu_list
 
         fig = plt.figure(figsize=(hsize,vsize), frameon=False)
         ax = fig.add_subplot()
@@ -1008,8 +1101,6 @@ class RtslTrace:
 
     __trace_cmd_plugins=["/usr/lib64/trace-cmd/plugins/", "~/.trace-cmd/plugins/" ]
     __perf_plugins=["/usr/lib64/trace-cmd/plugins/", "~/.local/lib/traceevent/plugins/" ]
-
-    __db_list=[]
 
     __working_dir="rtsl_data"
     __trace_file=""
@@ -1239,8 +1330,6 @@ class RtslTrace:
 
         os.environ.pop("RTSL_RECORD_DB")
 
-        self.__db_list = db_name_list
-
     def __report_ftrace_get_cpus(self):
         command="trace-cmd report --stat -i %s" % self.__trace_file
         process = self.__run_command(command)
@@ -1333,60 +1422,11 @@ class RtslTrace:
         else:
             raise Exception("Did not find a trace file in the working dir (%s)" % self.__working_dir)
 
-        self.analysis(self.__db_list)
-
-# -------------------- Analysis --------------------
-    def analysis_thread(self, database, io_queue):
-        """
-        Analyze a database file, placing the output into a queue.
-        """
-
-        report=RtslAnalysis(database)
-        report.irq_sliding_window=True
-        report.process_trace()
-        io_queue.put(report.std_output)
-
-    def analysis_print_header(self):
-        print("  ==== Latency Analisyis! ==== ")
-        print("\tTime unit is nanosecods")
-        print("\tpoid  = Preemption or Interrupt disabled [ not to schedule ] window")
-        print("\tpaie  = Preemption and Interrupts enabled")
-        print("\tpsd   = Preemption disabled to schedule window")
-        print("\tdst   = Delay of scheduling tail")
-        print("\tifl   = Interference free latency")
-        print("\tINT   = Interrupts")
-        print("\tIRQ   = Maskable interrupts")
-        print("\tNMI   = Non-maskable interrupts")
-        print("\toWCET = Observed Worst Case Execution Time")
-        print("\toMIAT = Observed Minimun Inter-arrival Time")
-        print("")
-
-    def analysis(self, dabase_list):
-        """
-        Analize a list of database files.
-        """
-        import multiprocessing
-        process_list=[]
-        queue_list={}
-
-        self.analysis_print_header()
-
-        for database in dabase_list:
-            queue = multiprocessing.Queue()
-            process = multiprocessing.Process(target=self.analysis_thread, args=[database, queue])
-            process.start()
-
-            process_list.append((process, queue))
-
-        for process, queue in process_list:
-            std_out=queue.get()
-            process.join()
-
-        for database in dabase_list:
-            report=RtslDatabase(database)
-
-            for line in report.get_analysis_output():
-                print(line)
+        analysis=RtslAnalysis()
+        analysis.run()
+        analysis.print_results()
+        if (params.plot):
+            analysis.plot_results()
 
 # -------------------- Online stats --------------------
 class RTSLThreadVarStats:
@@ -1774,9 +1814,14 @@ if __name__ == '__main__':
 
     # Report options
     report_parser.add_argument("--reparse", dest="reparse", action='store_true',
+                         required=False,
+                         default=False,
+                         help="force re-parsing the trace file")
+
+    report_parser.add_argument("--plot", dest="plot", action='store_true',
                         required=False,
                         default=False,
-                        help="force re-parsing the trace file")
+                        help="plot results")
 
     # Stats options
     stats_parser.add_argument('var', choices=['poid', 'paie', 'psd', 'dst'],
