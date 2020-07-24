@@ -1422,13 +1422,6 @@ class RtslTrace:
         else:
             raise Exception("Did not find a trace file in the working dir (%s)" % self.__working_dir)
 
-        analysis=RtslAnalysis()
-        analysis.run()
-        analysis.print_results()
-        if (params.plot):
-            analysis.plot_results()
-
-# -------------------- Online stats --------------------
 class RTSLThreadVarStats:
     __vars={ "poid" : 1, "paie" : 2, "psd": 3, "dst" : 4 }
     __var=""
@@ -1754,12 +1747,18 @@ def main_record(params):
 
 def main_report(params):
     try:
-        rtsl=RtslTrace("report", verbose=params.verbose)
+        trace=RtslTrace("report", verbose=params.verbose)
     except Exception as e:
         print(str(e))
         sys.exit(1)
 
-    rtsl.report(params)
+    trace.report(params)
+
+    analysis=RtslAnalysis()
+    analysis.run()
+    analysis.print_results()
+    if (params.plot):
+        analysis.plot_results()
 
 def main_stats(params):
 
