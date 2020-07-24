@@ -22,6 +22,48 @@ import math
 import sqlite3
 import os
 
+class RtslModule:
+    __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
+
+    def rtsl_check_interface(self):
+        """
+        Check if the rtsl is loaded by trying to open the enable interface.
+        """
+
+        enable_path=self.__rtsl_interface_dir + "enable"
+        enable=open(enable_path, 'w')
+        enable.close()
+
+    def __rtsl_interface_enable(self, on_off):
+        """
+        Write in rts/enable file.
+        """
+        enable_path=self.__rtsl_interface_dir + "enable"
+
+        try:
+            enable=open(enable_path, 'w')
+        except Exception as e:
+            raise e
+
+        try:
+            enable.write(on_off)
+        except:
+            raise Exception("Cannot write to the RTSL interface: %s" % e.strerror)
+
+        enable.close()
+
+    def rtsl_enable(self):
+        """
+        Enable rtsl tracepoints.
+        """
+        self.__rtsl_interface_enable("1")
+
+    def rtsl_disable(self):
+        """
+        Disable rtsl tracepoints.
+        """
+        self.__rtsl_interface_enable("0")
+
 class RtslDatabase:
     """
     This is a "per-database" representation of the systems, aiming to produce
@@ -944,49 +986,6 @@ class RtslAnalysis(RtslINTAnalysis):
 
         fig.tight_layout()
         plt.savefig(output_file)
-
-
-class RtslModule:
-    __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
-
-    def rtsl_check_interface(self):
-        """
-        Check if the rtsl is loaded by trying to open the enable interface.
-        """
-
-        enable_path=self.__rtsl_interface_dir + "enable"
-        enable=open(enable_path, 'w')
-        enable.close()
-
-    def __rtsl_interface_enable(self, on_off):
-        """
-        Write in rts/enable file.
-        """
-        enable_path=self.__rtsl_interface_dir + "enable"
-
-        try:
-            enable=open(enable_path, 'w')
-        except Exception as e:
-            raise e
-
-        try:
-            enable.write(on_off)
-        except:
-            raise Exception("Cannot write to the RTSL interface: %s" % e.strerror)
-
-        enable.close()
-
-    def rtsl_enable(self):
-        """
-        Enable rtsl tracepoints.
-        """
-        self.__rtsl_interface_enable("1")
-
-    def rtsl_disable(self):
-        """
-        Disable rtsl tracepoints.
-        """
-        self.__rtsl_interface_enable("0")
 
 class RtslCmdOptions(RtslModule):
     duration=0
