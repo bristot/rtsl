@@ -22,7 +22,7 @@ import math
 import sqlite3
 import os
 
-class RtslModule:
+class RtslKernelModule:
     __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
 
     def rtsl_check_interface(self):
@@ -1028,7 +1028,7 @@ class RtslTrace:
 
         if mode == "record":
             # try to read the module
-            self.__module=RtslModule()
+            self.__module=RtslKernelModule()
             try:
                 self.__module.rtsl_check_interface()
             except Exception as e:
@@ -1621,7 +1621,7 @@ class RtslStats:
         self.quite=quite
         self.duration = duration
 
-        self.__module=RtslModule()
+        self.__module=RtslKernelModule()
         try:
             self.__module.rtsl_check_interface()
         except Exception as e:
