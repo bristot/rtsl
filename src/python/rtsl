@@ -479,7 +479,7 @@ class RtslDatabase:
         c.execute('''CREATE TABLE results (cpu integer, name TEXT, latency integer, PRIMARY KEY(cpu, name))''')
         self.conn.commit()
 
-# -------------------- CPU gets --------------------
+    # -------------------- CPU gets --------------------
     def get_cpu_list(self):
         """
         Returns the list[] of CPUs in the database, based on the CPU id's that
@@ -491,7 +491,7 @@ class RtslDatabase:
         cpu_list.sort()
         return cpu_list
 
-# -------------------- Thread variable GETs --------------------
+    # -------------------- Thread variable GETs --------------------
     def get_poid(self, cpu):
         """
         Returns the POID of a given CPU
@@ -528,7 +528,7 @@ class RtslDatabase:
         except:
             return 0
 
-# -------------------- IRQ GETs --------------------
+    # -------------------- IRQ GETs --------------------
     def get_irq_cpu_owcet(self, cpu):
         """
         returns the duration of the longest IRQ execution of a given CPU.
@@ -621,7 +621,7 @@ class RtslDatabase:
         except:
             return self.__get_irq_vector_miat(cpu, vector)
 
-# -------------------- IRQ GETs --------------------
+    # -------------------- IRQ GETs --------------------
     def get_nmi_cpu_miat(self, cpu):
         """
         returns the duration of the longest NMI execution of a given CPU.
@@ -688,7 +688,7 @@ class RtslDatabase:
 
         return min_iat
 
-# -------------------- get/set results --------------------
+    # -------------------- get/set results --------------------
     def insert_results(self, cpu, name, latency):
         self.conn.execute("INSERT OR REPLACE INTO results VALUES (?, ?, ?)", (cpu, name, latency))
 
@@ -737,7 +737,7 @@ class RtslINTAnalysis(RtslDatabase):
         self.insert_analysis_output(cpu, line)
         self.__save_results(cpu, latency, case)
 
-# -------------------- Analysis --------------------
+    # -------------------- Analysis --------------------
     def open_cyclictest(self, file_path="cyclictest.txt"):
         """
         Open cyclyctest output.
@@ -1365,7 +1365,7 @@ class RtslAnalysis:
     # plot_results(output_file="output_compact.svg", hsize=7, vsize=4, title="", ymax=60 , ylabel="", xlabel="", legend=False, xtick_distance=4)
     # plot_results(output_file="output_ultra_compact.svg", hsize=4, vsize=4, title="", ymax=60 , ylabel="", xlabel="", legend=False, xtick_distance=0)
 
-    def plot_results(self, output_file="rtsl_results.svg", hsize=16, vsize=7, title="Latency analysys", ymax=0 , ylabel="Latency (microseconds)", xlabel="CPU", legend=True, legend_loc="upper center", legend_ncol=8, xtick_distance=1):
+    def plot_results(self, output_file="rtsl_results.svg", hsize=16, vsize=7, title="Latency analysys", ymax=0, ylabel="Latency (microseconds)", xlabel="CPU", legend=True, legend_loc="upper center", legend_ncol=8, xtick_distance=1):
 
         try:
             import matplotlib
@@ -1423,7 +1423,7 @@ class RtslAnalysis:
         fig.tight_layout()
         plt.savefig(output_file)
 
-class RTSLThreadVarStats:
+class RtslThreadVarStats:
     __vars={ "poid" : 1, "paie" : 2, "psd": 3, "dst" : 4 }
     __var=""
 
@@ -1661,7 +1661,7 @@ class RtslStats:
         except Exception as e:
             raise Exception("Cannot access RTSL interface: %s" % e.strerror)
 
-        self.__s = RTSLThreadVarStats(self.__variable)
+        self.__s = RtslThreadVarStats(self.__variable)
 
     def __wait_quite(self):
         try:
