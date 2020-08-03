@@ -1260,6 +1260,10 @@ class RtslINTAnalysis(RtslDatabase):
         return window, "Sliding Window with oWCET"
 
 class RtslCPUAnalysis(RtslINTAnalysis):
+    """
+    This is class extends the RtslINTAnalysis to provide
+    a (single) CPU view of the analysis.
+    """
 
     cyclictest=False
     irq_none=True
@@ -1270,9 +1274,15 @@ class RtslCPUAnalysis(RtslINTAnalysis):
     irq_sliding_window_owcet=True
 
     def __init__(self, database_file="trace.rtsl"):
+        """
+        Connect to the database.
+        """
         super().__init__(database_file)
 
     def __process_trace_cpu(self, cpu):
+        """
+        Process the trace of a CPU.
+        """
         self.print_cpu_analysis(cpu, "CPU: %3d" % cpu)
 
         poid=self.get_poid(cpu)
@@ -1304,6 +1314,9 @@ class RtslCPUAnalysis(RtslINTAnalysis):
             self.sliding_window_interrupt_owcet(cpu, ifl)
 
     def process_trace(self, cyclictest="cyclictest.txt"):
+        """
+        Process the trace of all CPUs of a database.
+        """
         cpus = self.get_cpu_list()
         cpus.sort()
 
