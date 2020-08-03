@@ -754,7 +754,7 @@ class RtslDatabase:
     # -------------------- get/set results --------------------
     def insert_results(self, cpu, name, latency):
         """
-        Insert the latency result of an analysis"
+        Insert the latency result of an analysis.
         """
         self.conn.execute("INSERT OR REPLACE INTO results VALUES (?, ?, ?)", (cpu, name, latency))
 
@@ -786,12 +786,22 @@ class RtslDatabase:
         return results
 
 class RtslINTAnalysis(RtslDatabase):
+    """
+    This class provides methods to analyse the IRQ occurance present in a
+    RtslDatabase.
+
+    Results are saved to the same database.
+    """
+
     has_cyclictest_results=False
     __cyclictest_data=[]
 
     std_output={}
 
     def __init__(self, database_file="trace.rtsl"):
+        """
+        Open the database.
+        """
         super().__init__(database_file, reset_results=True)
 
     def print_cpu_analysis(self, cpu, line):
@@ -830,7 +840,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def print_cyclictest(self, cpu):
         """
-        returns the cyclictest's latency of a CPU.
+        Returns the cyclictest's latency of a CPU.
         """
 
         self.print_cpu_analysis(cpu, "\tCyclictest:")
@@ -849,7 +859,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def interference_free_latency(self, cpu, poid, paie, psd, dst):
         """
-        returns the interference free latency of a given CPU.
+        Returns the interference free latency of a given CPU.
         """
         self.print_cpu_analysis(cpu, "\tInterference Free Latency:")
         self.print_cpu_analysis(cpu, "\t\t  latency = max(     poid,       dst) +      paie +       psd")
@@ -862,7 +872,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def no_interrupt(self, cpu, ifl):
         """
-        latency considering only the threads of a given CPU.
+        Latency considering only the threads of a given CPU.
         """
         self.print_cpu_analysis(cpu, "\tNo interrupts:")
         self.print_latency(cpu, ifl, "No Interrupts")
@@ -871,7 +881,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def single_interrupt(self, cpu, ifl):
         """
-        latency considering a single NMI and a single IRQ (the worst).
+        Latency considering a single NMI and a single IRQ (the worst).
         """
         max_irq=0
         max_nmi=0
@@ -891,7 +901,8 @@ class RtslINTAnalysis(RtslDatabase):
 
     def single_of_each_interrupt(self, cpu, ifl):
         """
-        Latency considering a single NMI and the sum of one occurence of each Interrupt (the worst).
+        Latency considering a single NMI and the sum of one occurence of each
+        Interrupt (the worst).
         """
         self.print_cpu_analysis(cpu, "\tConsidering a single NMI and the sum of one occurence of each Interrupt (the worst):")
 
@@ -923,7 +934,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def __rta_irq_interference(self, window, irq_param):
         """
-        A round of RTA
+        A round of RTA.
         """
         sum_irq=0
         for vector in irq_param:
@@ -939,7 +950,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def sporadic_interrupt(self, cpu, ifl):
         """
-        Latency considering sporadic interrupt
+        Latency considering sporadic interrupt.
         """
         self.print_cpu_analysis(cpu, "\tConsidering sporadic interrupts:")
         wont_converge=0
@@ -982,6 +993,7 @@ class RtslINTAnalysis(RtslDatabase):
         window=c_latency
         self.print_cpu_analysis(cpu, "\t\t%9s: %9s" % ("initial w", "ifl"))
         self.print_cpu_analysis(cpu, "\t\t%9d: %9d" % (window, ifl))
+
         while True:
             new_window  = c_latency + self.__rta_irq_interference(window, irq_param)
             self.print_cpu_analysis(cpu, "\t\t%9s= %d" % ("w'", new_window))
@@ -1030,32 +1042,32 @@ class RtslINTAnalysis(RtslDatabase):
 
     def sliding_window_interrupt(self, cpu, ifl):
         """
-        return the latency considering the sliding windown.
+        Return the latency considering the sliding windown.
         """
         self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt window (sliding window):" )
 
-        # saved results for each int entry:
+        # Saved results for each int entry:
         saved_int_interference={}
 
-        # base window:
+        # The ifl is the initial window.
         window=ifl
         self.print_cpu_analysis(cpu, "\t\tWindow: " + str(window))
 
-        # get the IRQ vector list of a CPU
+        # Get the IRQ vector list of a CPU.
         vector_list=self.get_irq_vectors_of_a_cpu(cpu)
 
-        # cache all the IRQ entries of an CPU.
-        # this improves the speed, while consuming memory
-        # it can be avoided by consulting the database anytime a
-        # vector is tried.
+        # Cache all the IRQ entries of an CPU. This improves the speed, while
+        # consuming memory. It can be avoided by consulting the database
+        # anytime a vector is tried, but this turns the analysis slower.
         #
         # TODO: create an option for low memory systems to fallback.
         irq_vector_entries={}
+
         for vector in vector_list:
             irq_entires = self.get_irq_entries_of_a_vector(cpu, vector)
             irq_vector_entries[vector]=irq_entires
 
-        # cache all the NMI entries of a CPU
+        # Cache all the NMI entries of a CPU.
         nmi_entries=self.get_nmi_entries_of_cpu(cpu)
 
         # First try for NMI
@@ -1070,22 +1082,22 @@ class RtslINTAnalysis(RtslDatabase):
         # Save the NMI disturbance.
         saved_int_interference[vector] = max_exec
 
-        # increase the window:
+        # Increase the window:
         window += max_exec
 
-        # try each IRQ
+        # Try each IRQ
         for vector in vector_list:
             max_exec = self.__max_exec_in_a_windown(irq_vector_entries[vector], window)
             self.print_cpu_analysis(cpu, "\t\t %9d:%9d" % (vector, max_exec))
             saved_int_interference[vector] = max_exec
 
-            # increase the window already, to try to save time.
+            # Increase the window already, to try to save time.
             window += max_exec
 
         self.print_cpu_analysis(cpu, "\t\tWindow: " + str(window))
 
-        # Loop until the new_window == window.
-        # IOW: when the worst window is found.
+        # Loop until the new_window == window. IOW: when the worst window is
+        # found.
         new_window = window
         while True:
 
@@ -1096,15 +1108,15 @@ class RtslINTAnalysis(RtslDatabase):
             except:
                 max_exec = 0
 
-            # if worse interference is found, update the results,
-            # and add it to the new_window.
+            # If worse interference is found, update the results, and add it to
+            # the new_window.
             if (max_exec > saved_int_interference[vector]):
                 self.print_cpu_analysis(cpu, "\t\t %9s:%9d <- new!" % (vector, max_exec))
                 new_window -= saved_int_interference[vector]
                 new_window += max_exec
                 saved_int_interference[vector]=max_exec
 
-            # same for IRQs.
+            # Same for IRQs.
             for vector in vector_list:
                 max_exec = self.__max_exec_in_a_windown(irq_vector_entries[vector], new_window - saved_int_interference[vector])
                 if (max_exec > saved_int_interference[vector]):
@@ -1132,13 +1144,13 @@ class RtslINTAnalysis(RtslDatabase):
         stack={}
         last_arrival=0
         for entry in vector:
-            # add the new entry in the stack
+            # Add the new entry in the stack.
             arrival = entry[0]
             exec_time = entry[1]
             stack[arrival]=exec_time
 
-            # for each occurence in the stack, remove thoses that
-            # arrived before window units of time ago.
+            # For each occurence in the stack, remove thoses that arrived before
+            # window units of time ago.
             for item in sorted(stack.keys()):
                 delta = arrival - item
                 if delta > window:
@@ -1165,21 +1177,21 @@ class RtslINTAnalysis(RtslDatabase):
         # get the IRQ vector list of a CPU
         vector_list=self.get_irq_vectors_of_a_cpu(cpu)
 
-        # cache all the IRQ entries of an CPU.
-        # this improves the speed, while consuming memory
-        # it can be avoided by consulting the database anytime a
-        # vector is tried.
+        # Cache all the IRQ entries of an CPU. This improves the speed, while
+        # consuming memory. It can be avoided by consulting the database
+        # anytime a vector is tried, but this turns the analysis slower.
         #
         # TODO: create an option for low memory systems to fallback.
         irq_vector_entries={}
+
         for vector in vector_list:
             irq_entires = self.get_irq_entries_of_a_vector(cpu, vector)
             irq_vector_entries[vector]=irq_entires
 
-        # cache all the NMI entries of a CPU
+        # Cache all the NMI entries of a CPU.
         nmi_entries=self.get_nmi_entries_of_cpu(cpu)
 
-        # cache the oWCET of each interrupt
+        # Cache the oWCET of each interrupt.
         irq_owcet={}
         try:
             irq_owcet["NMI"] = self.get_nmi_cpu_owcet(cpu)
@@ -1214,7 +1226,7 @@ class RtslINTAnalysis(RtslDatabase):
         new_window = window
         while True:
 
-            # NMI first
+            # NMI first.
             vector="NMI"
             try:
                 max_exec = self.__max_exec_in_a_windown_owcet(nmi_entries, new_window - saved_int_interference[vector], irq_owcet[vector])
@@ -1227,7 +1239,7 @@ class RtslINTAnalysis(RtslDatabase):
                 new_window += max_exec
                 saved_int_interference[vector]=max_exec
 
-            # Then IRQ
+            # Then IRQ.
             for vector in vector_list:
                 max_exec = self.__max_exec_in_a_windown_owcet(irq_vector_entries[vector], new_window - saved_int_interference[vector], irq_owcet[vector])
                 if (max_exec > saved_int_interference[vector]):
