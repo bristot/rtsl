@@ -23,6 +23,12 @@ import sqlite3
 import os
 
 class RtslKernelModule:
+    """
+    This is the rtsl kernel module interface class.
+
+    This class provides methods to enable and disable the
+    rtsl in-kernel tracing features.
+    """
     __rtsl_interface_dir="/sys/kernel/debug/rtsl/"
 
     def rtsl_check_interface(self):
