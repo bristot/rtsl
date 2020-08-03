@@ -71,6 +71,27 @@ class RtslKernelModule:
         self.__rtsl_interface_enable("0")
 
 class RtslTrace:
+    """
+    Trace helper class.
+
+    This class provides helper functions to call perf/ftrace tracing tools.
+
+    The rtsl does not trace the system itself. Instead, it uses either perf
+    or ftrace to collect and parse the events.
+
+    The "record" mode calls the tracing tools to record the tracepoints
+    provided by the rtsl kernel module (see RtslKernelModule class).
+
+    The "report" mode calls the tracing tools to parse the trace, translating
+    it into the database expected by the RtslDatabase class. The parsing is
+    not done by perf/ftrace themselves, but by a trace plugin provided by the
+    rtsl tookit.
+
+    The "report" mode is done in parallel, dispatching one (independent) tracer
+    instance per CPU found in the trace file. Each tracer instance will crate
+    one database named trace_${CPUID}.rtsl.
+    """
+
     __modes={ "record" : 1, "report" : 2, }
     __mode=None
 
@@ -97,6 +118,16 @@ class RtslTrace:
     __module=None
 
     def __init__(self, mode, duration=60, backend="perf", cyclictest=False, cyclictest_parameters="", verbose=False, working_dir="rtsl_data"):
+        """
+        The "record" mode uses the "backend" tool to record trace, placing
+        the output in the "working_dir." The trace tool runs for "duration"
+        in seconds.
+
+        The "report" mode checks the trace file in the "working_dir," calling
+        the respective "backend" tool. The "report" mode depends on a plugin
+        provided by rtsl, that must exist in the self.__trace_cmd_plugins or
+        self.__perf_plugins directory.
+        """
 
         self.__mode=self.__modes.get(mode)
         if self.__mode == None:
@@ -128,6 +159,10 @@ class RtslTrace:
         self.__working_dir=working_dir
 
     def __prepare_working_dir(self):
+        """
+        Creates the working_dir, renaming a previously existing
+        dir to a "working_dir.old.
+        """
         if os.path.exists(self.__working_dir):
             old_working_dir = "%s.old" % self.__working_dir
 
@@ -148,6 +183,9 @@ class RtslTrace:
             raise Exception("Cannot create the working dir.")
 
     def __get_file_multipath(self, paths, file_name):
+        """
+        Find a file on multiple paths.
+        """
         for path in paths:
             file_path=os.path.expanduser(path) + "/" +  file_name
             if os.path.exists(file_path):
@@ -210,20 +248,20 @@ class RtslTrace:
     # -------------------- report --------------------
     def __record_tracer_cmd(self, tracer_cmd_line):
         """
-        run a tracer in the record mode, enabling and disabling rtsl
+        Run a tracer in the record mode, enabling and disabling rtsl
         interface accordingly.
         """
 
-        # try to run it.
+        # Try to run it.
         try:
             trace_cmd = self.__run_command(tracer_cmd_line)
         except Exception as e:
             raise e
 
-        # Let the trace-cmd to start up.
+        # Let the tracer to start up.
         time.sleep(2)
 
-        # if it runs, enable rtsl events. This includes hooking to
+        # If it runs, enable rtsl events. This includes hooking to
         # the tracepoints and start the values of the thread windows.
         try:
             self.__module.rtsl_enable()
@@ -231,10 +269,10 @@ class RtslTrace:
             trace_cmd.kill()
             raise Exception("Error enabling RTSL: %s" % e.strerror)
 
-        # so far so good, wait for trace-cmd to return.
+        # So far so good, wait for the tracer to return.
         self.__poll_process_output(trace_cmd)
 
-        # and now disable the rtsl (unhook the tracepoints)
+        # Disable the rtsl (unhook the tracepoints)
         try:
             self.__module.rtsl_disable()
         except Exception as e:
@@ -291,12 +329,13 @@ class RtslTrace:
     # -------------------- report --------------------
     def __report_tracer_cmd(self, tracer_cmd_line, cpu_list, reparse=False):
         """
-        run a report command, no rtsl control in needed.
+        Run the report command, instructing the tracing plugin about the
+        database name.
         """
         process_list=[]
         db_name_list=[]
 
-        # tell the plugin to record the database.
+        # Tell the plugin to record the database.
         os.environ["RTSL_RECORD_DB"] = "1"
 
         for cpu in cpu_list:
@@ -310,18 +349,22 @@ class RtslTrace:
 
             os.environ["RTSL_DB_NAME"] = db_name
 
-            # try to run the conversion
+            # Try to run the conversion
             per_cpu_cmd_line = tracer_cmd_line + " --cpu " + cpu
             process = self.__run_command(per_cpu_cmd_line, silent=True)
 
             process_list.append(process)
-        # wait
+
+        # Wait
         for process in process_list:
             self.__poll_process_output(process, silent=True)
 
         os.environ.pop("RTSL_RECORD_DB")
 
     def __report_ftrace_get_cpus(self):
+        """
+        Returns the list of CPUs of the system that was traced with ftrace.
+        """
         command="trace-cmd report --stat -i %s" % self.__trace_file
         process = self.__run_command(command)
         output = self.__poll_process_output(process, save_output=True)
@@ -347,8 +390,8 @@ class RtslTrace:
         trace-cmd report: parse trace.dat converting into the sqlite database.
         """
 
-        # Check if the trace-cmd plugin that converts the trace.dat
-        # into a database exists before start.
+        # Check if the trace-cmd plugin that converts the trace.dat into a
+        # database exists before start.
         if self.__get_file_multipath(self.__trace_cmd_plugins, "plugin_rtsl.so") is None:
             raise Exception("trace-cmd plugin is not installed, cannot proceed.")
 
@@ -359,6 +402,9 @@ class RtslTrace:
         self.__report_tracer_cmd(command, cpu_list, reparse=params.reparse)
 
     def __report_perf_get_cpus(self):
+        """
+        Returns the list of CPUs of the system that was traced with perf.
+        """
         command="perf report -i %s --header-only -I" % self.__trace_file
         process = self.__run_command(command)
         output = self.__poll_process_output(process, save_output=True)
@@ -387,8 +433,8 @@ class RtslTrace:
         perf report: parse perf.data converting into the sqlite database.
         """
 
-        # Check if the perf plugin that converts the perf.data
-        # into a database exists before start.
+        # Check if the perf plugin that converts the perf.data into a database
+        # exists before start.
         if self.__get_file_multipath(self.__perf_plugins, "plugin_rtsl.so") is None:
             raise Exception("perf plugin is not installed, cannot proceed.")
 
