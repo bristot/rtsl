@@ -1044,7 +1044,7 @@ class RtslINTAnalysis(RtslDatabase):
         """
         Return the latency considering the sliding windown.
         """
-        self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt window (sliding window):" )
+        self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt burst (sliding window):" )
 
         # Saved results for each int entry:
         saved_int_interference={}
@@ -1170,7 +1170,7 @@ class RtslINTAnalysis(RtslDatabase):
         return the latency considering the sliding windown using the
         worst case execution time of each interrupt.
         """
-        self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt window (sliding window) and oWCET:" )
+        self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt burst (sliding window) and oWCET:" )
         saved_int_interference={}
         window=ifl
 
@@ -1265,19 +1265,20 @@ class RtslCPUAnalysis(RtslINTAnalysis):
     a (single) CPU view of the analysis.
     """
 
-    cyclictest=False
-    irq_none=True
-    irq_single=True
-    irq_single_of_each=True
-    irq_sporadic=True
-    irq_sliding_window=True
-    irq_sliding_window_owcet=True
+    __irq_analysis={ "cyclictest" : False, "none" : False, "single": False, "each" : False, "sporadic" : False, "s_window" : False, "s_window_owcet": False }
 
-    def __init__(self, database_file="trace.rtsl"):
+    def __init__(self, database_file="trace.rtsl", irq_analysis=[]):
         """
         Connect to the database.
         """
         super().__init__(database_file)
+
+        # If no analysis is set, run the sliding window.
+        if len(irq_analysis) == 0:
+            self.enable_irq_analysis("s_window")
+        else:
+            for method in irq_analysis:
+                self.enable_irq_analysis(method)
 
     def __process_trace_cpu(self, cpu):
         """
@@ -1291,27 +1292,35 @@ class RtslCPUAnalysis(RtslINTAnalysis):
         dst=self.get_dst(cpu)
 
         ifl = self.interference_free_latency(cpu, poid, paie, psd, dst)
-        if self.cyclictest:
+
+        if self.__irq_analysis["cyclictest"]:
             if self.has_cyclictest_results:
                 latency, case = self.print_cyclictest(cpu)
 
-        if self.irq_none:
+        if self.__irq_analysis["none"]:
             self.no_interrupt(cpu, ifl)
 
-        if self.irq_single:
+        if self.__irq_analysis["single"]:
             self.single_interrupt(cpu, ifl)
 
-        if self.irq_single_of_each:
+        if self.__irq_analysis["each"]:
             self.single_of_each_interrupt(cpu, ifl)
 
-        if self.irq_sporadic:
+        if self.__irq_analysis["sporadic"]:
             self.sporadic_interrupt(cpu, ifl)
 
-        if self.irq_sliding_window:
+        if self.__irq_analysis["s_window"]:
             self.sliding_window_interrupt(cpu, ifl)
 
-        if self.irq_sliding_window_owcet:
+        if self.__irq_analysis["s_window_owcet"]:
             self.sliding_window_interrupt_owcet(cpu, ifl)
+
+    def enable_irq_analysis(self, analysis):
+
+        try:
+            self.__irq_analysis[analysis]=True
+        except:
+            raise Exception("The irq analysis %s does not exist" % analysis)
 
     def process_trace(self, cyclictest="cyclictest.txt"):
         """
@@ -1332,7 +1341,9 @@ class RtslAnalysis:
 
     bar_colors=[ '#142459', '#7d3ac1', '#de542c', '#1ac9e6', '#ea7369', '#e7e34e', '#c7f9ee' ]
 
-    def __init__(self, rtsl_working_dir="rtsl_data"):
+    __irq_analysis_list=[]
+
+    def __init__(self, rtsl_working_dir="rtsl_data", irq_analysis=[]):
 
         # This is a dictionary of cpu = file. It is used to
         # sort the __db_list by the CPU index.
@@ -1365,12 +1376,15 @@ class RtslAnalysis:
             db_path="%s/%s" % (rtsl_working_dir, files_dict[cpu])
             self.__db_list.append(db_path)
 
+    def enable_irq_analysis(self, method):
+        self.__irq_analysis_list.append(method)
+
     def analysis_thread(self, database, io_queue):
         """
         Analyze a database file, placing the output into a queue.
         """
 
-        analysis=RtslCPUAnalysis(database)
+        analysis=RtslCPUAnalysis(database, irq_analysis=self.__irq_analysis_list)
         analysis.irq_sliding_window=True
         analysis.process_trace()
         io_queue.put(analysis.std_output)
@@ -1856,6 +1870,25 @@ def main_report(params):
     trace.report(params)
 
     analysis=RtslAnalysis()
+
+    if params.irq_none:
+        analysis.enable_irq_analysis("none")
+
+    if params.irq_worst_single:
+        analysis.enable_irq_analysis("single")
+
+    if params.irq_worst_each:
+        analysis.enable_irq_analysis("each")
+
+    if params.irq_sporadic:
+        analysis.enable_irq_analysis("sporadic")
+
+    if params.irq_s_window:
+        analysis.enable_irq_analysis("s_window")
+
+    if params.irq_s_window_owcet:
+        analysis.enable_irq_analysis("s_window_owcet")
+
     analysis.run()
     analysis.print_results()
     if (params.plot):
@@ -1922,6 +1955,36 @@ if __name__ == '__main__':
                         required=False,
                         default=False,
                         help="plot results")
+
+    report_parser.add_argument('-N', "--irq_none", dest="irq_none", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency without IRQs")
+
+    report_parser.add_argument('-W', "--irq_worst_single", dest="irq_worst_single", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency with a single (worst) IRQs")
+
+    report_parser.add_argument('-E', "--irq_worst_each", dest="irq_worst_each", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency with a single (worst) occurence of each IRQ")
+
+    report_parser.add_argument('-P', "--irq_periodic", dest="irq_sporadic", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency with periodic/sporadic interrupts")
+
+    report_parser.add_argument('-S', "--irq_sliding_window", dest="irq_s_window", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency with sliding window with the worst busrt occurence of all IRQs")
+
+    report_parser.add_argument('-O', "--irq_sliding_window_owcet", dest="irq_s_window_owcet", action='store_true',
+                         required=False,
+                         default=False,
+                         help="Latency with sliding window with the worst busrt occurence of all IRQs considering their oWCET")
 
     # Stats options
     stats_parser.add_argument('var', choices=['poid', 'paie', 'psd', 'dst'],
