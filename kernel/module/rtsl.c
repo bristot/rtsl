@@ -873,7 +873,7 @@ static void handle_nmi_exit(void *nulla, unsigned long ip,
  * Is the interrupt vector the best identifier? Probably not, I need to
  * think more about which ID to use (and if it it should be a number).
  */
-static void handle_irq_entry(void *nulla, int vector)
+static void handle_irq_vector_entry(void *nulla, int vector)
 {
 	struct rtsl_variables *rtsl_var = this_cpu_rtsl_var();
 	struct irq *irq = &rtsl_var->irq;
@@ -885,6 +885,21 @@ static void handle_irq_entry(void *nulla, int vector)
 
 	local_inc(&rtsl_var->int_counter);
 }
+
+static void handle_irq_entry(void *nulla, int irq_nr, struct irqaction *action)
+{
+	struct rtsl_variables *rtsl_var = this_cpu_rtsl_var();
+	struct irq *irq = &rtsl_var->irq;
+
+	if (!rtsl_running(rtsl_var))
+		return;
+
+	irq->vector = irq_nr;
+
+	local_inc(&rtsl_var->int_counter);
+}
+
+
 
 /*
  * These are helper functions to hook to tracepoints without
@@ -1021,62 +1036,70 @@ static struct tp_and_name tps[NR_TP] = {
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "local_timer_entry",
 		.registered = 0
 	},
+#ifdef IRQ_VECTOR
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "external_interrupt_entry",
 		.registered = 0
 	},
+#else
 	{
 		.probe = handle_irq_entry,
+		.name = "irq_handler_entry",
+		.registered = 0
+	},
+#endif
+	{
+		.probe = handle_irq_vector_entry,
 		.name = "thermal_apic_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "deferred_error_apic_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "threshold_apic_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "call_function_single_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "call_function_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "reschedule_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "irq_work_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "x86_platform_ipi_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "error_apic_entry",
 		.registered = 0
 	},
 	{
-		.probe = handle_irq_entry,
+		.probe = handle_irq_vector_entry,
 		.name = "spurious_apic_entry",
 		.registered = 0
 	},
