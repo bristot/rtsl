@@ -1,0 +1,114 @@
+From 143601ed6549eee90e08c838e21f58b8cfd471b9 Mon Sep 17 00:00:00 2001
+Message-Id: <143601ed6549eee90e08c838e21f58b8cfd471b9.1596438871.git.bristot@redhat.com>
+In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Wed, 22 Apr 2020 10:06:20 +0200
+Subject: [PATCH 04/16] sched/core: Inform the latency tracer the reason why it
+ was called
+
+Inform the latency tracer if it was called to postpone or to protect the
+__schedule() call with an additional argument.
+
+-------------- %< ---------------------
+Steve: Should I add an enum to notify the reasons? e.g.,
+
+#define PREEMPT_DISABLE 0
+#define PREEMPT_DISABLE_SCHED 1
+
+so, suggestions of names?
+
+where should I add them?
+------------- >% -----------------------
+
+No functional changes.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/sched/core.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index dc709aca6814..814c5bfbe200 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3884,7 +3884,7 @@ static inline void sched_tick_stop(int cpu) { }
+  * If the value passed in is equal to the current preempt count
+  * then we just disabled preemption. Start timing the latency.
+  */
+-static inline void preempt_latency_start(int val)
++static inline void preempt_latency_start(int val, int to_sched)
+ {
+ 	if (preempt_count() == val) {
+ 		unsigned long ip = get_lock_parent_ip();
+@@ -3912,7 +3912,7 @@ static inline void preempt_count_add_debug(int val, int to_sched)
+ 	DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=
+ 				PREEMPT_MASK - 10);
+ #endif
+-	preempt_latency_start(val);
++	preempt_latency_start(val, to_sched);
+ }
+ 
+ void preempt_count_add_sched(int val)
+@@ -3931,7 +3931,7 @@ NOKPROBE_SYMBOL(preempt_count_add);
+  * If the value passed in equals to the current preempt count
+  * then we just enabled preemption. Stop timing the latency.
+  */
+-static inline void preempt_latency_stop(int val)
++static inline void preempt_latency_stop(int val, int to_sched)
+ {
+ 	if (preempt_count() == val)
+ 		trace_preempt_on(CALLER_ADDR0, get_lock_parent_ip());
+@@ -3953,7 +3953,7 @@ static inline void preempt_count_sub_debug(int val, int to_sched)
+ 		return;
+ #endif
+ 
+-	preempt_latency_stop(val);
++	preempt_latency_stop(val, to_sched);
+ 	__preempt_count_sub(val);
+ }
+ 
+@@ -3970,8 +3970,8 @@ EXPORT_SYMBOL(preempt_count_sub);
+ NOKPROBE_SYMBOL(preempt_count_sub);
+ 
+ #else
+-static inline void preempt_latency_start(int val) { }
+-static inline void preempt_latency_stop(int val) { }
++static inline void preempt_latency_start(int val, int to_sched) { }
++static inline void preempt_latency_stop(int val, int to_sched) { }
+ #endif
+ 
+ static inline unsigned long get_preempt_disable_ip(struct task_struct *p)
+@@ -4383,9 +4383,9 @@ static void __sched notrace preempt_schedule_common(void)
+ 		 * which can also be traced by the function tracer.
+ 		 */
+ 		preempt_disable_sched_notrace();
+-		preempt_latency_start(1);
++		preempt_latency_start(1, 1);
+ 		__schedule(true);
+-		preempt_latency_stop(1);
++		preempt_latency_stop(1, 1);
+ 		preempt_enable_sched_notrace();
+ 
+ 		/*
+@@ -4478,7 +4478,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
+ 		 * which can also be traced by the function tracer.
+ 		 */
+ 		preempt_disable_sched_notrace();
+-		preempt_latency_start(1);
++		preempt_latency_start(1, 1);
+ 		/*
+ 		 * Needs preempt disabled in case user_exit() is traced
+ 		 * and the tracer calls preempt_enable_notrace() causing
+@@ -4488,7 +4488,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
+ 		__schedule(true);
+ 		exception_exit(prev_ctx);
+ 
+-		preempt_latency_stop(1);
++		preempt_latency_stop(1, 1);
+ 		preempt_enable_sched_notrace();
+ 	} while (need_resched());
+ }
+-- 
+2.26.2
+

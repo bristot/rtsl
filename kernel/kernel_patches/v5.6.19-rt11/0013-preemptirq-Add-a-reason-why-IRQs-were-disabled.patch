@@ -1,0 +1,105 @@
+From e1654cbfc39c392cb0f27b00d033f9384fa37c3b Mon Sep 17 00:00:00 2001
+Message-Id: <e1654cbfc39c392cb0f27b00d033f9384fa37c3b.1596438871.git.bristot@redhat.com>
+In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 12 May 2020 13:40:43 +0200
+Subject: [PATCH 13/16] preemptirq: Add a reason why IRQs were disabled
+
+IRQ can be disabled by the current thread, or by the hardware before
+starting handling one IRQ.
+
+Add an special function to be used to notify that the hardware disabled IRQs
+to handle a giving IRQ, and forward to the tracepoint reason why IRQs were
+disabled.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/trace/trace_preemptirq.c | 36 +++++++++++++++++++++++++++------
+ 1 file changed, 30 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/trace/trace_preemptirq.c b/kernel/trace/trace_preemptirq.c
+index ed5fcaaef1e1..dcd793c7fc7b 100644
+--- a/kernel/trace/trace_preemptirq.c
++++ b/kernel/trace/trace_preemptirq.c
+@@ -16,14 +16,22 @@
+ #include <trace/events/preemptirq.h>
+ 
+ #ifdef CONFIG_TRACE_IRQFLAGS
++
++#define IRQ_OFF_NORMAL		1
++#define IRQ_OFF_IRQ_ENTRY 	2
++
++#define is_irq_entry(x) (x == IRQ_OFF_IRQ_ENTRY)
++
+ /* Per-cpu variable to prevent redundant calls when IRQs already off */
+ static DEFINE_PER_CPU(int, tracing_irq_cpu);
+ 
+ void trace_hardirqs_on(void)
+ {
+-	if (this_cpu_read(tracing_irq_cpu)) {
++	int tracing_irq = this_cpu_read(tracing_irq_cpu);
++	if (tracing_irq) {
+ 		if (!in_nmi())
+-			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1, 0);
++			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1,
++						 is_irq_entry(tracing_irq));
+ 		tracer_hardirqs_on(CALLER_ADDR0, CALLER_ADDR1);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -36,7 +44,7 @@ NOKPROBE_SYMBOL(trace_hardirqs_on);
+ void trace_hardirqs_off(void)
+ {
+ 	if (!this_cpu_read(tracing_irq_cpu)) {
+-		this_cpu_write(tracing_irq_cpu, 1);
++		this_cpu_write(tracing_irq_cpu, IRQ_OFF_NORMAL);
+ 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
+ 		if (!in_nmi())
+ 			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1, 0);
+@@ -49,9 +57,11 @@ NOKPROBE_SYMBOL(trace_hardirqs_off);
+ 
+ __visible void trace_hardirqs_on_caller(unsigned long caller_addr)
+ {
+-	if (this_cpu_read(tracing_irq_cpu)) {
++	int tracing_irq = this_cpu_read(tracing_irq_cpu);
++	if (tracing_irq) {
+ 		if (!in_nmi())
+-			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr, 0);
++			trace_irq_enable_rcuidle(CALLER_ADDR0, caller_addr,
++						 is_irq_entry(tracing_irq));
+ 		tracer_hardirqs_on(CALLER_ADDR0, caller_addr);
+ 		this_cpu_write(tracing_irq_cpu, 0);
+ 	}
+@@ -64,7 +74,7 @@ NOKPROBE_SYMBOL(trace_hardirqs_on_caller);
+ __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
+ {
+ 	if (!this_cpu_read(tracing_irq_cpu)) {
+-		this_cpu_write(tracing_irq_cpu, 1);
++		this_cpu_write(tracing_irq_cpu, IRQ_OFF_NORMAL);
+ 		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
+ 		if (!in_nmi())
+ 			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr, 0);
+@@ -74,6 +84,20 @@ __visible void trace_hardirqs_off_caller(unsigned long caller_addr)
+ }
+ EXPORT_SYMBOL(trace_hardirqs_off_caller);
+ NOKPROBE_SYMBOL(trace_hardirqs_off_caller);
++
++__visible void trace_hardirqs_off_caller_irq_entry(unsigned long caller_addr)
++{
++	if (!this_cpu_read(tracing_irq_cpu)) {
++		this_cpu_write(tracing_irq_cpu, IRQ_OFF_IRQ_ENTRY);
++		tracer_hardirqs_off(CALLER_ADDR0, caller_addr);
++		if (!in_nmi())
++			trace_irq_disable_rcuidle(CALLER_ADDR0, caller_addr, 1);
++	}
++
++	lockdep_hardirqs_off(CALLER_ADDR0);
++}
++EXPORT_SYMBOL(trace_hardirqs_off_caller_irq_entry);
++NOKPROBE_SYMBOL(trace_hardirqs_off_caller_irq_entry);
+ #endif /* CONFIG_TRACE_IRQFLAGS */
+ 
+ #ifdef CONFIG_TRACE_PREEMPT_TOGGLE
+-- 
+2.26.2
+

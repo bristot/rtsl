@@ -1,0 +1,73 @@
+From 1a4c6fda8335787ecdba4b7844bf8dbb0826996d Mon Sep 17 00:00:00 2001
+Message-Id: <1a4c6fda8335787ecdba4b7844bf8dbb0826996d.1596438871.git.bristot@redhat.com>
+In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Thu, 14 May 2020 18:37:50 +0200
+Subject: [PATCH 16/16] rcu: Set rcu_irq_[enter|exit]_irqson notrace
+
+rcu_irq_enter_irqson() and rcu_irq_exit_irqson() are used by the tracing
+subsystem, mainly when tracing in code entry points.
+
+What is happening is that, the preemptirq:irq_disable/enable
+tracepoints, which are called in the interrupt entry, are causing
+a recursion with the local_irq_save/restore used in
+rcu_irq_exit_irqson() and rcu_irq_enter_irqson().
+
+To avoid this recursion, set these functions as notrace, and use the
+notrace versions of raw_local_irq_save/restore.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/rcu/tree.c | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/rcu/tree.c b/kernel/rcu/tree.c
+index 4170fbe5c0f7..f7cdb3c70a73 100644
+--- a/kernel/rcu/tree.c
++++ b/kernel/rcu/tree.c
+@@ -703,14 +703,17 @@ void rcu_irq_exit(void)
+  *
+  * If you add or remove a call to rcu_irq_exit_irqson(), be sure to test
+  * with CONFIG_RCU_EQS_DEBUG=y.
++ *
++ * This function is mostly used to allow tracing on idle state. It is set
++ * as notrace and uses raw_local_irq_* to avoid recursion.
+  */
+-void rcu_irq_exit_irqson(void)
++void notrace rcu_irq_exit_irqson(void)
+ {
+ 	unsigned long flags;
+ 
+-	local_irq_save(flags);
++	raw_local_irq_save(flags);
+ 	rcu_irq_exit();
+-	local_irq_restore(flags);
++	raw_local_irq_restore(flags);
+ }
+ 
+ /*
+@@ -879,14 +882,17 @@ void rcu_irq_enter(void)
+  *
+  * If you add or remove a call to rcu_irq_enter_irqson(), be sure to test
+  * with CONFIG_RCU_EQS_DEBUG=y.
++ *
++ * This function is mostly used to allow tracing on idle state. It is set
++ * as notrace and uses raw_local_irq_* to avoid recursion.
+  */
+-void rcu_irq_enter_irqson(void)
++void notrace rcu_irq_enter_irqson(void)
+ {
+ 	unsigned long flags;
+ 
+-	local_irq_save(flags);
++	raw_local_irq_save(flags);
+ 	rcu_irq_enter();
+-	local_irq_restore(flags);
++	raw_local_irq_restore(flags);
+ }
+ 
+ /*
+-- 
+2.26.2
+

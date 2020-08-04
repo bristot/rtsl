@@ -1,0 +1,82 @@
+From ed1f0b72c0d6fc5f6ebdd93712ee0df34a314857 Mon Sep 17 00:00:00 2001
+Message-Id: <ed1f0b72c0d6fc5f6ebdd93712ee0df34a314857.1596438871.git.bristot@redhat.com>
+In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Wed, 22 Apr 2020 11:24:58 +0200
+Subject: [PATCH 07/16] trace/preemptirq: Add helper functions for switching to
+ the scheduling context
+
+For optimization reasons, if the preemption was already disabled to
+postpone the scheduler, it will not be re enabled and disabled back to
+call the scheduler. It makes sense.
+
+So, we need to add an annotation for this context. These helper
+functions do that.
+
+No functional change, and no code add if the preempt tracing is off.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ include/linux/ftrace.h          |  4 ++++
+ kernel/trace/trace_preemptirq.c | 24 ++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/include/linux/ftrace.h b/include/linux/ftrace.h
+index 925ec8611811..9e24b7c82892 100644
+--- a/include/linux/ftrace.h
++++ b/include/linux/ftrace.h
+@@ -827,6 +827,8 @@ static inline unsigned long get_lock_parent_ip(void)
+ #ifdef CONFIG_TRACE_PREEMPT_TOGGLE
+   extern void trace_preempt_on(unsigned long a0, unsigned long a1, int to_sched);
+   extern void trace_preempt_off(unsigned long a0, unsigned long a1, int to_sched);
++  extern void trace_preempt_switch_to_sched(unsigned long a0, unsigned long a1);
++  extern void trace_preempt_switch_not_sched(unsigned long a0, unsigned long a1);
+ #else
+ /*
+  * Use defines instead of static inlines because some arches will make code out
+@@ -834,6 +836,8 @@ static inline unsigned long get_lock_parent_ip(void)
+  */
+ # define trace_preempt_on(a0, a1, to_sched) do { } while (0)
+ # define trace_preempt_off(a0, a1, to_sched) do { } while (0)
++# define trace_preempt_switch_to_sched(a0, a1) do { } while (0)
++# define trace_preempt_switch_not_sched(a0, a1) do { } while (0)
+ #endif
+ 
+ #ifdef CONFIG_FTRACE_MCOUNT_RECORD
+diff --git a/kernel/trace/trace_preemptirq.c b/kernel/trace/trace_preemptirq.c
+index 5253f7d2d2b2..ed5fcaaef1e1 100644
+--- a/kernel/trace/trace_preemptirq.c
++++ b/kernel/trace/trace_preemptirq.c
+@@ -91,4 +91,28 @@ void trace_preempt_off(unsigned long a0, unsigned long a1, int to_sched)
+ 		trace_preempt_disable_rcuidle(a0, a1, to_sched);
+ 	tracer_preempt_off(a0, a1);
+ }
++
++void trace_preempt_switch_to_sched(unsigned long a0, unsigned long a1)
++{
++	/*
++	 * We are not actually changing the preempt counter, just changing
++	 * the context in which the preemption was disabled.
++	 *
++	 * here: from the preempt_disable() -> preempt_disable_sched().
++	 */
++	trace_preempt_on(a0, a1, 0);
++	trace_preempt_off(a0, a1, 1);
++}
++
++void trace_preempt_switch_not_sched(unsigned long a0, unsigned long a1)
++{
++	/*
++	 * We are not actually changing the preempt counter, just changing
++	 * the context in which the preemption was disabled.
++	 *
++	 * here: from the preempt_disable_sched() -> preempt_disable().
++	 */
++	trace_preempt_on(a0, a1, 1);
++	trace_preempt_off(a0, a1, 0);
++}
+ #endif
+-- 
+2.26.2
+

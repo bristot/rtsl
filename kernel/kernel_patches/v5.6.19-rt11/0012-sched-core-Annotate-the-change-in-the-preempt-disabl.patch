@@ -1,0 +1,36 @@
+From 033a0c4fabb99bf45fe48fd418f51d08332e085e Mon Sep 17 00:00:00 2001
+Message-Id: <033a0c4fabb99bf45fe48fd418f51d08332e085e.1596438871.git.bristot@redhat.com>
+In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 12 May 2020 13:28:51 +0200
+Subject: [PATCH 12/16] sched/core: Annotate the change in the preempt disable
+ scope.
+
+do_task_dead() is called with preemption disabled, and calls the
+__schedule() using the previous preempt disable. It is not a problem,
+but rtsl needs to know that the preemption changed the scope from
+postponing the scheduler to actually executing.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/sched/core.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index cb7549100464..082f01b33309 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4246,7 +4246,9 @@ void __noreturn do_task_dead(void)
+ 	/* Tell freezer to ignore us: */
+ 	current->flags |= PF_NOFREEZE;
+ 
++	trace_preempt_switch_to_sched(CALLER_ADDR0, get_lock_parent_ip());
+ 	__schedule(false);
++	trace_preempt_switch_not_sched(CALLER_ADDR0, get_lock_parent_ip());
+ 	BUG();
+ 
+ 	/* Avoid "noreturn function does return" - but don't continue if BUG() is a NOP: */
+-- 
+2.26.2
+
