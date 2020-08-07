@@ -1,10 +1,10 @@
-From 4b8f9fa1a6985c17d0c6728141700f01ae6831cf Mon Sep 17 00:00:00 2001
-Message-Id: <4b8f9fa1a6985c17d0c6728141700f01ae6831cf.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From f7ff7630a21a0c6ab246b934141891f671da16ad Mon Sep 17 00:00:00 2001
+Message-Id: <f7ff7630a21a0c6ab246b934141891f671da16ad.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Wed, 22 Apr 2020 11:26:02 +0200
-Subject: [PATCH 08/16] sched/idle: Annotate the preempt disable from idle
+Subject: [PATCH 08/17] sched/idle: Annotate the preempt disable from idle
  tasks
 
 Idle runs with preempt disabled. It actually does not disable

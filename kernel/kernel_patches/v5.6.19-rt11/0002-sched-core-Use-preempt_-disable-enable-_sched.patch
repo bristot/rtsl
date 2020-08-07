@@ -1,10 +1,10 @@
-From f3a27c89d4e6feb97eb77e9d0559fda3f7d56055 Mon Sep 17 00:00:00 2001
-Message-Id: <f3a27c89d4e6feb97eb77e9d0559fda3f7d56055.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From 84c2062ad94b23da2d9c954158e9867f17d55e32 Mon Sep 17 00:00:00 2001
+Message-Id: <84c2062ad94b23da2d9c954158e9867f17d55e32.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 21 Apr 2020 21:23:03 +0200
-Subject: [PATCH 02/16] sched/core: Use preempt_[disable|enable]_sched()
+Subject: [PATCH 02/17] sched/core: Use preempt_[disable|enable]_sched()
 
 Use the preempt_disable_sched() before calling __schedule(), and
 preempt_enable_sched() after returning from __schedule().

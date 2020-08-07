@@ -1,10 +1,10 @@
-From 033a0c4fabb99bf45fe48fd418f51d08332e085e Mon Sep 17 00:00:00 2001
-Message-Id: <033a0c4fabb99bf45fe48fd418f51d08332e085e.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From eb4eb54a49f7ece60d9437769ec03e45f34faded Mon Sep 17 00:00:00 2001
+Message-Id: <eb4eb54a49f7ece60d9437769ec03e45f34faded.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 12 May 2020 13:28:51 +0200
-Subject: [PATCH 12/16] sched/core: Annotate the change in the preempt disable
+Subject: [PATCH 12/17] sched/core: Annotate the change in the preempt disable
  scope.
 
 do_task_dead() is called with preemption disabled, and calls the

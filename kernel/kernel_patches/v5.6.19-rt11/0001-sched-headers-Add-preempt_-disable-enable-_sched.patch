@@ -1,8 +1,8 @@
-From 673b6b81ef06bc5492483a21333d4fbcf7e03a04 Mon Sep 17 00:00:00 2001
-Message-Id: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From 3600edc0736c99a4827120d6420e4a7a7e649b9c Mon Sep 17 00:00:00 2001
+Message-Id: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 21 Apr 2020 18:15:45 +0200
-Subject: [PATCH 01/16] sched/headers: Add preempt_[disable|enable]_sched
+Subject: [PATCH 01/17] sched/headers: Add preempt_[disable|enable]_sched
 
 Adds specific functions to disable preemption to protect the scheduler:
 

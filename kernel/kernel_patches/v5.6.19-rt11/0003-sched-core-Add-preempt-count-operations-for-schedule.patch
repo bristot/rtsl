@@ -1,10 +1,10 @@
-From 855c801aca5ecf0e77d9a708afa22ea5d7c53d2c Mon Sep 17 00:00:00 2001
-Message-Id: <855c801aca5ecf0e77d9a708afa22ea5d7c53d2c.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From df0082af9a1a1b90bc856c7a8050127fc0e7cc0e Mon Sep 17 00:00:00 2001
+Message-Id: <df0082af9a1a1b90bc856c7a8050127fc0e7cc0e.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 21 Apr 2020 21:44:04 +0200
-Subject: [PATCH 03/16] sched/core: Add preempt count operations for scheduler
+Subject: [PATCH 03/17] sched/core: Add preempt count operations for scheduler
 
 Adds preempt_count_inc_sched()/preempt_count_dec_sched() and the
 respective preempt_count_add_sched()/preempt_count_sub_sched() helpers.

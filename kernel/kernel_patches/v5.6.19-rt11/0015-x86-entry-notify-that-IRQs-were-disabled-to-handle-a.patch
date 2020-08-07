@@ -1,10 +1,10 @@
-From e860d4c630fc95f428a31466cd4cca95f466f272 Mon Sep 17 00:00:00 2001
-Message-Id: <e860d4c630fc95f428a31466cd4cca95f466f272.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From 4ae818bbd2d7a2c1ceb903ef967f0a14f7ed45d9 Mon Sep 17 00:00:00 2001
+Message-Id: <4ae818bbd2d7a2c1ceb903ef967f0a14f7ed45d9.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 12 May 2020 13:41:45 +0200
-Subject: [PATCH 15/16] x86/entry: notify that IRQs were disabled to handle an
+Subject: [PATCH 15/17] x86/entry: notify that IRQs were disabled to handle an
  interrupt
 
 Use the TRACE_IRQS_OFF_ENTRY helper to notify that this is an

@@ -1,10 +1,10 @@
-From b017a48722a618340e79e4a65a4459abfffa3ed3 Mon Sep 17 00:00:00 2001
-Message-Id: <b017a48722a618340e79e4a65a4459abfffa3ed3.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From d44b7d5c3fb3291b5f1f1ffc34d02615a3705d36 Mon Sep 17 00:00:00 2001
+Message-Id: <d44b7d5c3fb3291b5f1f1ffc34d02615a3705d36.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: root <root@localhost.localdomain>
 Date: Mon, 16 Dec 2019 21:36:17 +0100
-Subject: [PATCH 10/16] trace,x86: Add external_interrupts to the irq_vectors
+Subject: [PATCH 10/17] trace,x86: Add external_interrupts to the irq_vectors
  class
 
 Currently, the irq_vectors is showing the entry and exit events for

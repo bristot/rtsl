@@ -1,10 +1,10 @@
-From 30928f83fef41fb90a84aea0e47c0d93f305fcbc Mon Sep 17 00:00:00 2001
-Message-Id: <30928f83fef41fb90a84aea0e47c0d93f305fcbc.1596438871.git.bristot@redhat.com>
-In-Reply-To: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
-References: <673b6b81ef06bc5492483a21333d4fbcf7e03a04.1596438871.git.bristot@redhat.com>
+From bc4bf3350cb0aee77d1c6913e6d494f920e82a25 Mon Sep 17 00:00:00 2001
+Message-Id: <bc4bf3350cb0aee77d1c6913e6d494f920e82a25.1596793056.git.bristot@redhat.com>
+In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Tue, 12 May 2020 13:41:28 +0200
-Subject: [PATCH 14/16] x86_64/preemptirq: Add TRACE_IRQS_OFF_ENTRY helper
+Subject: [PATCH 14/17] x86_64/preemptirq: Add TRACE_IRQS_OFF_ENTRY helper
 
 Add TRACE_IRQS_OFF_ENTRY helper to notify that IRQs were disabled
 by the hardware before starting handing the interrupt.
