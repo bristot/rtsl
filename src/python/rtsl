@@ -441,7 +441,7 @@ class RtslTrace:
         cpu_list = self.__report_perf_get_cpus()
 
         command="perf script -i %s" % self.__trace_file
-        self.__report_tracer_cmd(command, cpu_list, reparse=param.reparse)
+        self.__report_tracer_cmd(command, cpu_list, reparse=params.reparse)
 
     def report(self, params):
         """
