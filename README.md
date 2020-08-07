@@ -29,10 +29,10 @@ You can apply yourself the patches present in [kernel_patches](kernel/kernel_pat
 On a Fedora 32 box, in the directory of a patched kernel, I run:
 
 ```
-# make localmodconfig
+$ make localmodconfig
 ```
 
-Then select the kernel options as mentioned above and compile it, as easy as this. It works for me.
+Then run `make menuconfig` to select the kernel options mentioned above and compile it. It works for me.
 
 ### rtsl tool
 
@@ -55,8 +55,8 @@ The trace-plugin is a `C` program used by perf/trace-cmd to convert the trace in
 Inside the [src directory](src/), run:
 
 ```
-make
-make install
+$ make
+# make install
 ```
 
 ## Usage
@@ -73,7 +73,7 @@ In the *record mode*, the kernel is traced, collecting the value for the thread 
 As an example of usage, the command line for tracing the system for 2 minutes is:
 
 ```
-rtsl record -d 2m
+# rtsl record -d 2m
 ```
 
 The trace file will be saved in the `rtsl_data` directory:
@@ -85,7 +85,7 @@ The report mode parses the trace data, transforming it into a `per-cpu` sqlite3 
 For example, the command line below will run the analysis, reporting the results.
 
 ```
-[root@mundissa bristot]# rtsl report
+# rtsl report
   ==== Latency Analisyis! ==== 
 	Time unit is nanosecods
 	poid  = Preemption or Interrupt disabled [ not to schedule ] window
@@ -123,7 +123,7 @@ CPU:   0
 The ```--help``` argument shows all available options for each command, for instance:
 
 ```
-[root@mundissa bristot]# rtsl report --help
+# rtsl report --help
 usage: rtsl report [-h] [--reparse] [--plot] [-N] [-W] [-E] [-P] [-S] [-O]
 
 optional arguments:
@@ -146,7 +146,7 @@ optional arguments:
 The *stats* command uses eBPF/BCC to observe the value for the _thread variables_ at runtime. For example, the command:
 
 ```
-rtsl stats poid
+# rtsl stats poid
 ```
 
 Will report a page like this, refreshing every second with new values:
