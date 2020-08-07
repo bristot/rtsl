@@ -32,7 +32,7 @@ On a Fedora 32 box, in the directory of a patched kernel, I run:
 # make localmodconfig
 ```
 
-Then select the kernel options as mentioned above options and compile it, as easy as this. It works for me.
+Then select the kernel options as mentioned above and compile it, as easy as this. It works for me.
 
 ### rtsl tool
 
