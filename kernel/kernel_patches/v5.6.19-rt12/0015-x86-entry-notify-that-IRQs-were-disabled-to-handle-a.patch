@@ -1,0 +1,41 @@
+From 6a7af8f766065d7a5c37e9613aa1a62c94ac0f56 Mon Sep 17 00:00:00 2001
+Message-Id: <6a7af8f766065d7a5c37e9613aa1a62c94ac0f56.1598619579.git.bristot@redhat.com>
+In-Reply-To: <cover.1598619579.git.bristot@redhat.com>
+References: <cover.1598619579.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 12 May 2020 13:41:45 +0200
+Subject: [RFC PATCH RT 15/17] x86/entry: notify that IRQs were disabled to
+ handle an interrupt
+
+Use the TRACE_IRQS_OFF_ENTRY helper to notify that this is an
+annotation, informing that the hardware disabled the IRQs.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ arch/x86/entry/entry_64.S | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/entry/entry_64.S b/arch/x86/entry/entry_64.S
+index 5cd6f739fd98..aa1a1de417b0 100644
+--- a/arch/x86/entry/entry_64.S
++++ b/arch/x86/entry/entry_64.S
+@@ -568,14 +568,14 @@ SYM_CODE_START(interrupt_entry)
+ 	 * we enter from user mode.  There's no reason to optimize this since
+ 	 * TRACE_IRQS_OFF is a no-op if lockdep is off.
+ 	 */
+-	TRACE_IRQS_OFF
++	TRACE_IRQS_OFF_ENTRY
+ 
+ 	CALL_enter_from_user_mode
+ 
+ 1:
+ 	ENTER_IRQ_STACK old_rsp=%rdi save_ret=1
+ 	/* We entered an interrupt context - irqs are off: */
+-	TRACE_IRQS_OFF
++	TRACE_IRQS_OFF_ENTRY
+ 
+ 	ret
+ SYM_CODE_END(interrupt_entry)
+-- 
+2.26.2
+

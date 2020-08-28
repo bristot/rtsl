@@ -1,0 +1,33 @@
+From b17b8c27330dd058fa69c748d2b0794c92ade14f Mon Sep 17 00:00:00 2001
+Message-Id: <b17b8c27330dd058fa69c748d2b0794c92ade14f.1598619579.git.bristot@redhat.com>
+In-Reply-To: <cover.1598619579.git.bristot@redhat.com>
+References: <cover.1598619579.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Wed, 22 Apr 2020 11:28:49 +0200
+Subject: [RFC PATCH RT 09/17] sched/core: schedule_tail enables the preemption
+ when retuning from the scheduler
+
+The schedule_tail function enables the preemption after returning from
+the scheduler, so use the correct preempt_enable_sched() function.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/sched/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index ec5f54fafa73..cb7549100464 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -3441,7 +3441,7 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
+ 
+ 	rq = finish_task_switch(prev);
+ 	balance_callback(rq);
+-	preempt_enable();
++	preempt_enable_sched();
+ 
+ 	if (current->set_child_tid)
+ 		put_user(task_pid_vnr(current), current->set_child_tid);
+-- 
+2.26.2
+

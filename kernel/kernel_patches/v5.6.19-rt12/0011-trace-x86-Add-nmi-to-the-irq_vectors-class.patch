@@ -1,10 +1,10 @@
-From 9624fb33967b8da3d15cbef02626f256f5c52075 Mon Sep 17 00:00:00 2001
-Message-Id: <9624fb33967b8da3d15cbef02626f256f5c52075.1596793056.git.bristot@redhat.com>
-In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
-References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+From 7e3688489f45dfad5a3958aed94c42f6b360f221 Mon Sep 17 00:00:00 2001
+Message-Id: <7e3688489f45dfad5a3958aed94c42f6b360f221.1598619579.git.bristot@redhat.com>
+In-Reply-To: <cover.1598619579.git.bristot@redhat.com>
+References: <cover.1598619579.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Mon, 16 Dec 2019 21:37:25 +0100
-Subject: [PATCH 11/17] trace,x86: Add nmi to the irq_vectors class
+Subject: [RFC PATCH RT 11/17] trace,x86: Add nmi to the irq_vectors class
 
 Currently, the irq_vector class of tracepoints does not include the NMI
 entry. The NMI was in the first set of tracepoints for IRQs, but it was
@@ -38,7 +38,7 @@ Cc: x86@kernel.org
  2 files changed, 11 insertions(+)
 
 diff --git a/arch/x86/include/asm/trace/irq_vectors.h b/arch/x86/include/asm/trace/irq_vectors.h
-index 38e73d56db70..a68885e90e16 100644
+index 144471f396ba..6b4f71d814ac 100644
 --- a/arch/x86/include/asm/trace/irq_vectors.h
 +++ b/arch/x86/include/asm/trace/irq_vectors.h
 @@ -144,6 +144,11 @@ DEFINE_IRQ_VECTOR_EVENT(thermal_apic);
@@ -55,10 +55,10 @@ index 38e73d56db70..a68885e90e16 100644
  	TP_PROTO(unsigned int irq, unsigned int vector,
 @@ -394,6 +399,8 @@ TRACE_EVENT(vector_free_moved,
  #else /* CONFIG_X86_LOCAL_APIC */
- #define trace_external_interrupt_entry(vector) do {} while(0)
- #define trace_external_interrupt_exit(vector) do {} while(0)
-+#define trace_nmi_entry(vector) do {} while(0)
-+#define trace_nmi_exit(vector) do {} while(0)
+ #define trace_external_interrupt_entry(vector) do {} while (0)
+ #define trace_external_interrupt_exit(vector) do {} while (0)
++#define trace_nmi_entry(vector) do {} while (0)
++#define trace_nmi_exit(vector) do {} while (0)
  #endif /* CONFIG_X86_LOCAL_APIC */
  
  #undef TRACE_INCLUDE_PATH

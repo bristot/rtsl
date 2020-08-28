@@ -1,0 +1,77 @@
+From 8801be69e347eb6a9bd1fd3eed5cb8f12bb83c39 Mon Sep 17 00:00:00 2001
+Message-Id: <cover.1598619579.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Fri, 28 Aug 2020 14:59:39 +0200
+Subject: [RFC PATCH RT 00/17] trace: Real-Time Scheduling Latency Tracer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hi,
+
+This is the proof-of-concept code that enables the rtsl tool
+presented at the LPC today.
+
+It applies on top of linux-rt-devel/v5.6.19-rt12. That is because
+this patchset is made for the PREEMPT_RT.
+
+There is a newer PREEMPT_RT version (5.9-rc-rt) released earlier this
+week on the upstream repo, but I did not have time to update the code,
+anyway, the basic idea is still here.
+
+The first eight patches are annotations for the preempt_disable/enable
+used around __schedule(). The next six are tracing things for IRQs,
+mostly annotations. Then the next patch set rcu_irq_[enter|exit]_irqson
+notrace to avoid tracing recursion, and finally, the trace event parser
+is added.
+
+You can find more about the motivation of the rtsl tool here:
+	https://bristot.me/demystifying-the-real-time-linux-latency/
+
+Daniel Bristot de Oliveira (17):
+  sched/headers: Add preempt_[disable|enable]_sched
+  sched/core: Use preempt_[disable|enable]_sched()
+  sched/core: Add preempt count operations for scheduler
+  sched/core: Inform the latency tracer the reason why it was called
+  tracing/preemptirq: Let the preempt tracer know the reason why
+    preemption was disabled
+  trace/preemptirq: Let the tracepoints know why preemption was disabled
+  trace/preemptirq: Add helper functions for switching to the scheduling
+    context
+  sched/idle: Annotate the preempt disable from idle tasks
+  sched/core: schedule_tail enables the preemption when retuning from
+    the scheduler
+  trace,x86: Add external_interrupts to the irq_vectors class
+  trace,x86: Add nmi to the irq_vectors class
+  sched/core: Annotate the change in the preempt disable scope.
+  preemptirq: Add a reason why IRQs were disabled
+  x86_64/preemptirq: Add TRACE_IRQS_OFF_ENTRY helper
+  x86/entry: notify that IRQs were disabled to handle an interrupt
+  rcu: Set rcu_irq_[enter|exit]_irqson notrace
+  rtsl: Real-Time Scheduling Latency Tracer
+
+ arch/x86/entry/entry_64.S                |    4 +-
+ arch/x86/entry/thunk_64.S                |    1 +
+ arch/x86/include/asm/irqflags.h          |    2 +
+ arch/x86/include/asm/trace/irq_vectors.h |   17 +-
+ arch/x86/kernel/irq.c                    |    2 +
+ arch/x86/kernel/nmi.c                    |    4 +
+ include/linux/ftrace.h                   |   12 +-
+ include/linux/preempt.h                  |   31 +
+ include/trace/events/preemptirq.h        |   20 +-
+ include/trace/events/rtsl.h              |  132 +++
+ kernel/rcu/tree.c                        |   18 +-
+ kernel/sched/core.c                      |   68 +-
+ kernel/sched/idle.c                      |    2 +
+ kernel/softirq.c                         |    4 +-
+ kernel/trace/Kconfig                     |    8 +
+ kernel/trace/Makefile                    |    1 +
+ kernel/trace/trace_preemptirq.c          |   72 +-
+ kernel/trace/trace_rtsl.c                | 1271 ++++++++++++++++++++++
+ 18 files changed, 1609 insertions(+), 60 deletions(-)
+ create mode 100644 include/trace/events/rtsl.h
+ create mode 100644 kernel/trace/trace_rtsl.c
+
+-- 
+2.26.2
+

@@ -1,11 +1,11 @@
-From d44b7d5c3fb3291b5f1f1ffc34d02615a3705d36 Mon Sep 17 00:00:00 2001
-Message-Id: <d44b7d5c3fb3291b5f1f1ffc34d02615a3705d36.1596793056.git.bristot@redhat.com>
-In-Reply-To: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
-References: <3600edc0736c99a4827120d6420e4a7a7e649b9c.1596793056.git.bristot@redhat.com>
+From cc442aa2a0d33634a86e8e790217b9770c6d48fc Mon Sep 17 00:00:00 2001
+Message-Id: <cc442aa2a0d33634a86e8e790217b9770c6d48fc.1598619579.git.bristot@redhat.com>
+In-Reply-To: <cover.1598619579.git.bristot@redhat.com>
+References: <cover.1598619579.git.bristot@redhat.com>
 From: Daniel Bristot de Oliveira <bristot@redhat.com>
 Date: Mon, 16 Dec 2019 21:36:17 +0100
-Subject: [PATCH 10/17] trace,x86: Add external_interrupts to the irq_vectors
- class
+Subject: [RFC PATCH RT 10/17] trace,x86: Add external_interrupts to the
+ irq_vectors class
 
 Currently, the irq_vectors is showing the entry and exit events for
 the interrupts of the architecture, but not for external interrupts.
@@ -34,7 +34,7 @@ Cc: x86@kernel.org
  2 files changed, 11 insertions(+), 1 deletion(-)
 
 diff --git a/arch/x86/include/asm/trace/irq_vectors.h b/arch/x86/include/asm/trace/irq_vectors.h
-index 33b9d0f0aafe..38e73d56db70 100644
+index 33b9d0f0aafe..144471f396ba 100644
 --- a/arch/x86/include/asm/trace/irq_vectors.h
 +++ b/arch/x86/include/asm/trace/irq_vectors.h
 @@ -138,6 +138,12 @@ DEFINE_IRQ_VECTOR_EVENT(deferred_error_apic);
@@ -56,8 +56,8 @@ index 33b9d0f0aafe..38e73d56db70 100644
  
 -
 +#else /* CONFIG_X86_LOCAL_APIC */
-+#define trace_external_interrupt_entry(vector) do {} while(0)
-+#define trace_external_interrupt_exit(vector) do {} while(0)
++#define trace_external_interrupt_entry(vector) do {} while (0)
++#define trace_external_interrupt_exit(vector) do {} while (0)
  #endif /* CONFIG_X86_LOCAL_APIC */
  
  #undef TRACE_INCLUDE_PATH

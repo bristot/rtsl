@@ -1,0 +1,83 @@
+From 0c7184186a080c78b03df98e0fd552033f0e7c4f Mon Sep 17 00:00:00 2001
+Message-Id: <0c7184186a080c78b03df98e0fd552033f0e7c4f.1598619579.git.bristot@redhat.com>
+In-Reply-To: <cover.1598619579.git.bristot@redhat.com>
+References: <cover.1598619579.git.bristot@redhat.com>
+From: Daniel Bristot de Oliveira <bristot@redhat.com>
+Date: Tue, 21 Apr 2020 21:23:03 +0200
+Subject: [RFC PATCH RT 02/17] sched/core: Use preempt_[disable|enable]_sched()
+
+Use the preempt_disable_sched() before calling __schedule(), and
+preempt_enable_sched() after returning from __schedule().
+
+No functional changes: the new methods map to the methods already in use.
+
+Signed-off-by: Daniel Bristot de Oliveira <bristot@redhat.com>
+---
+ kernel/sched/core.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 792da55c69db..a70f86fc6fe5 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4282,9 +4282,9 @@ asmlinkage __visible void __sched schedule(void)
+ 
+ 	sched_submit_work(tsk);
+ 	do {
+-		preempt_disable();
++		preempt_disable_sched();
+ 		__schedule(false);
+-		sched_preempt_enable_no_resched();
++		preempt_enable_sched();
+ 	} while (need_resched());
+ 	sched_update_worker(tsk);
+ }
+@@ -4362,11 +4362,11 @@ static void __sched notrace preempt_schedule_common(void)
+ 		 * traced. The other to still record the preemption latency,
+ 		 * which can also be traced by the function tracer.
+ 		 */
+-		preempt_disable_notrace();
++		preempt_disable_sched_notrace();
+ 		preempt_latency_start(1);
+ 		__schedule(true);
+ 		preempt_latency_stop(1);
+-		preempt_enable_no_resched_notrace();
++		preempt_enable_sched_notrace();
+ 
+ 		/*
+ 		 * Check again in case we missed a preemption opportunity
+@@ -4457,7 +4457,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
+ 		 * traced. The other to still record the preemption latency,
+ 		 * which can also be traced by the function tracer.
+ 		 */
+-		preempt_disable_notrace();
++		preempt_disable_sched_notrace();
+ 		preempt_latency_start(1);
+ 		/*
+ 		 * Needs preempt disabled in case user_exit() is traced
+@@ -4469,7 +4469,7 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
+ 		exception_exit(prev_ctx);
+ 
+ 		preempt_latency_stop(1);
+-		preempt_enable_no_resched_notrace();
++		preempt_enable_sched_notrace();
+ 	} while (need_resched());
+ }
+ EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
+@@ -4492,11 +4492,11 @@ asmlinkage __visible void __sched preempt_schedule_irq(void)
+ 	prev_state = exception_enter();
+ 
+ 	do {
+-		preempt_disable();
++		preempt_disable_sched();
+ 		local_irq_enable();
+ 		__schedule(true);
+ 		local_irq_disable();
+-		sched_preempt_enable_no_resched();
++		preempt_enable_sched();
+ 	} while (need_resched());
+ 
+ 	exception_exit(prev_state);
+-- 
+2.26.2
+
