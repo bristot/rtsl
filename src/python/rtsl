@@ -42,7 +42,7 @@ class RtslKernelModule:
 
     def __rtsl_interface_enable(self, on_off):
         """
-        Write in rts/enable file.
+        Write in rtsl/enable file.
         """
         enable_path=self.__rtsl_interface_dir + "enable"
 
@@ -85,7 +85,7 @@ class RtslTrace:
     The "report" mode calls the tracing tools to parse the trace, translating
     it into the database expected by the RtslDatabase class. The parsing is
     not done by perf/ftrace themselves, but by a trace plugin provided by the
-    rtsl tookit.
+    rtsl toolkit.
 
     The "report" mode is done in parallel, dispatching one (independent) tracer
     instance per CPU found in the trace file. Each tracer instance will crate
@@ -480,7 +480,7 @@ class RtslDatabase:
 
     def __init__(self, database_file="trace.rtsl", reset_results=False):
         """
-        Open a database, reseting the results if requested.
+        Open a database, resetting the results if requested.
         """
         if os.path.exists(database_file) == False:
             raise Exception("Database %s does not exist" % database_file)
@@ -787,7 +787,7 @@ class RtslDatabase:
 
 class RtslINTAnalysis(RtslDatabase):
     """
-    This class provides methods to analyse the IRQ occurance present in a
+    This class provides methods to analyse the IRQ occurrence present in a
     RtslDatabase.
 
     Results are saved to the same database.
@@ -825,7 +825,7 @@ class RtslINTAnalysis(RtslDatabase):
     # -------------------- Analysis --------------------
     def open_cyclictest(self, file_path="cyclictest.txt"):
         """
-        Open cyclyctest output.
+        Open cyclictest output.
 
         The output must be generated with "-q" option.
         """
@@ -901,10 +901,10 @@ class RtslINTAnalysis(RtslDatabase):
 
     def single_of_each_interrupt(self, cpu, ifl):
         """
-        Latency considering a single NMI and the sum of one occurence of each
+        Latency considering a single NMI and the sum of one occurrence of each
         Interrupt (the worst).
         """
-        self.print_cpu_analysis(cpu, "\tConsidering a single NMI and the sum of one occurence of each Interrupt (the worst):")
+        self.print_cpu_analysis(cpu, "\tConsidering a single NMI and the sum of one occurrence of each Interrupt (the worst):")
 
         max_nmi=0
         max_irq=0
@@ -1024,7 +1024,7 @@ class RtslINTAnalysis(RtslDatabase):
             exec_time = entry[1]
             stack[arrival]=exec_time
 
-            # for each occurence in the stack, remove thoses that
+            # for each occurrence in the stack, remove those that
             # arrived before window units of time ago.
             for item in sorted(stack.keys()):
                 delta = arrival - item
@@ -1042,7 +1042,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def sliding_window_interrupt(self, cpu, ifl):
         """
-        Return the latency considering the sliding windown.
+        Return the latency considering the sliding window.
         """
         self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt burst (sliding window):" )
 
@@ -1149,7 +1149,7 @@ class RtslINTAnalysis(RtslDatabase):
             exec_time = entry[1]
             stack[arrival]=exec_time
 
-            # For each occurence in the stack, remove thoses that arrived before
+            # For each occurrence in the stack, remove those that arrived before
             # window units of time ago.
             for item in sorted(stack.keys()):
                 delta = arrival - item
@@ -1167,7 +1167,7 @@ class RtslINTAnalysis(RtslDatabase):
 
     def sliding_window_interrupt_owcet(self, cpu, ifl):
         """
-        return the latency considering the sliding windown using the
+        return the latency considering the sliding window using the
         worst case execution time of each interrupt.
         """
         self.print_cpu_analysis(cpu, "\tConsidering the worst interrupt burst (sliding window) and oWCET:" )
@@ -1391,7 +1391,7 @@ class RtslAnalysis:
 
     def run(self):
         """
-        Analize a list of database files.
+        Analyze a list of database files.
         """
         import multiprocessing
         process_list=[]
@@ -1409,8 +1409,8 @@ class RtslAnalysis:
             process.join()
 
     def print_header(self):
-        print("  ==== Latency Analisyis! ==== ")
-        print("\tTime unit is nanosecods")
+        print("  ==== Latency Analysis! ==== ")
+        print("\tTime unit is nanoseconds")
         print("\tpoid  = Preemption or Interrupt disabled [ not to schedule ] window")
         print("\tpaie  = Preemption and Interrupts enabled")
         print("\tpsd   = Preemption disabled to schedule window")
@@ -1572,7 +1572,7 @@ class RtslThreadVarStats:
             } else {
                 /*
                  * A millisecond value is not expected on the RT.
-                 * At least not in a correct enviroment.
+                 * At least not in a correct environment.
                  * In this case, put in the last bucket a sing that
                  * there is something really wrong.
                  */
@@ -1612,7 +1612,7 @@ class RtslThreadVarStats:
         self.__bpf_program.detach_tracepoint(event)
 
     def __parse_results(self, micro):
-        # Save the number of CPdUs
+        # Save the number of CPUs
         self.__cpus=micro.total_cpu
 
         self.__results_micro={}
@@ -1699,7 +1699,7 @@ class RtslThreadVarStats:
             label="%d (max = %d)" % (cpu, max_idx)
             ax.plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
 
-        # Trucate the x-axis with largest delay
+        # Truncate the x-axis with largest delay
         ax.set_xlim(1, x_max)
 
         ax.legend()
@@ -1732,7 +1732,7 @@ class RtslThreadVarStats:
             col=int(cpu % plots_per_line)
             axs[line, col].plot(buckets, counters, 'o', ls='-', label=label, markevery=1)
 
-        # Trucate the x-axis with largest delay (plus one)
+        # Truncate the x-axis with largest delay (plus one)
         for cpu in cpus:
             line=int(cpu / plots_per_line)
             col=int(cpu % plots_per_line)
@@ -1932,7 +1932,7 @@ if __name__ == '__main__':
     stats_parser.set_defaults(func=main_stats)
 
     # Global options
-    parser.add_argument('-v', "--vebose", dest="verbose",
+    parser.add_argument('-v', "--verbose", dest="verbose",
                         required=False, action='store_true',
                         help="print verbose output (like tracer's output)")
 
@@ -1969,7 +1969,7 @@ if __name__ == '__main__':
     report_parser.add_argument('-E', "--irq_worst_each", dest="irq_worst_each", action='store_true',
                          required=False,
                          default=False,
-                         help="Latency with a single (worst) occurence of each IRQ")
+                         help="Latency with a single (worst) occurrence of each IRQ")
 
     report_parser.add_argument('-P', "--irq_periodic", dest="irq_sporadic", action='store_true',
                          required=False,
@@ -1979,12 +1979,12 @@ if __name__ == '__main__':
     report_parser.add_argument('-S', "--irq_sliding_window", dest="irq_s_window", action='store_true',
                          required=False,
                          default=False,
-                         help="Latency with sliding window with the worst busrt occurence of all IRQs")
+                         help="Latency with sliding window with the worst burst occurrence of all IRQs")
 
     report_parser.add_argument('-O', "--irq_sliding_window_owcet", dest="irq_s_window_owcet", action='store_true',
                          required=False,
                          default=False,
-                         help="Latency with sliding window with the worst busrt occurence of all IRQs considering their oWCET")
+                         help="Latency with sliding window with the worst burst occurrence of all IRQs considering their oWCET")
 
     # Stats options
     stats_parser.add_argument('var', choices=['poid', 'paie', 'psd', 'dst'],
